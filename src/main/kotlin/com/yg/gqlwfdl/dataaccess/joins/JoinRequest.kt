@@ -1,7 +1,7 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
+import com.yg.gqlwfdl.dataaccess.QueryInfo
 import org.jooq.Record
-import org.jooq.SelectJoinStep
 import org.jooq.Table
 import org.jooq.TableField
 
@@ -19,15 +19,18 @@ class JoinRequest<TFieldType : Any, TPrimaryRecord : Record, TForeignRecord : Re
         private val subsequentJoins: List<JoinRequest<out Any, TForeignRecord, out Record>>) {
 
     /**
-     * Adds a join to the passed in [select] object, based on the data in this object, and returns a [JoinInstance]
-     * describing that join.
+     * Gets a [JoinInstance] based on this request, using the passed in [primaryTableInstance] as the primary side
+     * of the join.
      *
      * @param primaryTableInstance The instance of the primary table to join to.
+     * @param queryInfo The object containing information about the query to be executed. Whenever a new table is added
+     * to the query, this object is informed.
      */
-    fun join(select: SelectJoinStep<Record>, primaryTableInstance: Table<TPrimaryRecord>)
+    fun createInstance(primaryTableInstance: Table<TPrimaryRecord>, queryInfo: QueryInfo<out Record>)
             : JoinInstance<TFieldType, TPrimaryRecord, TForeignRecord> {
 
-        val aliasedForeignTable = definition.getAliasedForeignTable(primaryTableInstance)
+        val aliasedForeignTable = queryInfo.addJoinedTable(definition.foreignField.table, primaryTableInstance, definition.name)
+
         // We can ignore unchecked casts below because we know the items will come as the right types. We need to cast
         // for the generics to be used.
         @Suppress("UNCHECKED_CAST")
@@ -36,8 +39,8 @@ class JoinRequest<TFieldType : Any, TPrimaryRecord : Record, TForeignRecord : Re
         @Suppress("UNCHECKED_CAST")
         val foreignFieldInstance =
                 aliasedForeignTable.field(definition.foreignField) as TableField<TForeignRecord, TFieldType>
-        select.leftJoin(aliasedForeignTable).on(primaryFieldInstance.eq(foreignFieldInstance))
-        val subsequentJoinInstances = subsequentJoins.map { it.join(select, aliasedForeignTable) }
+
+        val subsequentJoinInstances = subsequentJoins.map { it.createInstance(aliasedForeignTable, queryInfo) }
         return JoinInstance(definition, primaryFieldInstance, foreignFieldInstance, subsequentJoinInstances)
     }
 }

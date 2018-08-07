@@ -22,10 +22,10 @@ class DataLoaderFactory(private val customerService: CustomerService,
      * @param requestContext The object providing access to the current request context.
      */
     fun createAllAndRegister(registry: DataLoaderRegistry, requestContext: RequestContext) {
-        DataLoaderType.values().forEach {
+        DataLoaderType.values().forEach { dataLoaderType->
             // Use a "when" to ensure that every type is included: compiler will fail if not every entry in the enum
             // is handled.
-            val dataLoader = when (it) {
+            val dataLoader = when (dataLoaderType) {
                 DataLoaderType.COMPANY ->
                     EntityDataLoader<Long, Company> { companyService.findByIds(it) }
 
@@ -39,7 +39,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
                     EntityDataLoader<Long, PricingDetails> { pricingDetailsService.findByIds(it) }
             }
 
-            registry.register(it.registryKey, dataLoader)
+            registry.register(dataLoaderType.registryKey, dataLoader)
         }
     }
 }

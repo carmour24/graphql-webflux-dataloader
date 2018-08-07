@@ -34,6 +34,11 @@ type Query {
   companyPartnerships: [CompanyPartnership]
 }
 
+type Mutation {
+   createTestData: String
+}
+
 schema {
   query: Query
+  mutation: Mutation
 }

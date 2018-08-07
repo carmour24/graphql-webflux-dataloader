@@ -19,7 +19,10 @@ import java.util.concurrent.CompletionStage
  * IDs, of type [TId].
  */
 class EntityDataLoader<TId, TEntity : Entity<TId>>(loader: (List<TId>) -> CompletionStage<List<TEntity>>)
-    : DataLoader<TId, TEntity>(BatchLoader { keys -> loader(keys).thenApply { it.syncWithKeys(keys) { it.id } } }) {
+    : DataLoader<TId, TEntity>(
+        BatchLoader { keys ->
+            loader(keys).thenApply { entities -> entities.syncWithKeys(keys) { it.id } }
+        }) {
 
     /**
      * The GraphQL fields which were in the current requested, which led to this data loader being used. For example,

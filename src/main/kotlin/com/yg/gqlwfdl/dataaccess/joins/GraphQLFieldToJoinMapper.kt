@@ -1,8 +1,8 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
 import com.yg.gqlwfdl.childFields
-import com.yg.gqlwfdl.yg.db.public_.Tables.COMPANY
-import com.yg.gqlwfdl.yg.db.public_.Tables.CUSTOMER
+import com.yg.gqlwfdl.dataaccess.db.Tables.COMPANY
+import com.yg.gqlwfdl.dataaccess.db.Tables.CUSTOMER
 import graphql.language.Field
 import org.jooq.Record
 import org.jooq.Table

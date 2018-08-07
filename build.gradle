@@ -1,7 +1,7 @@
 buildscript {
     ext {
-        kotlinVersion = '1.2.51'
-        springBootVersion = '2.0.3.RELEASE'
+        kotlinVersion = '1.2.60'
+        springBootVersion = '2.0.4.RELEASE'
     }
     repositories {
         mavenCentral()
@@ -57,12 +57,13 @@ dependencies {
     compile("org.jooq:jooq:3.11.2")
     compile("org.jooq:jooq-meta:3.11.2")
     compile("org.jooq:jooq-codegen:3.11.2")
+    compile("io.reactiverse:reactive-pg-client:0.9.0")
 
     runtime('org.springframework.boot:spring-boot-devtools')
     runtime("org.junit.jupiter:junit-jupiter-engine")
-    runtime('com.h2database:h2:1.4.197')
+    runtime('org.postgresql:postgresql')
 
-    jooqRuntime('com.h2database:h2:1.4.197')
+    jooqRuntime('org.postgresql:postgresql')
     jooqRuntime("org.jooq:jooq:3.11.2")
     jooqRuntime("org.jooq:jooq-meta:3.11.2")
     jooqRuntime("org.jooq:jooq-codegen:3.11.2")
@@ -80,21 +81,21 @@ jooq {
     edition = 'OSS'
     tables(sourceSets.main) {
         jdbc {
-            driver = 'org.h2.Driver'
-            url = 'jdbc:h2:./test;AUTO_SERVER=TRUE'
-            user = 'sa'
-            password = ''
+            driver = 'org.postgresql.Driver'
+            url = 'jdbc:postgresql://localhost:5432/gqlwfdl'
+            user = 'postgres'
+            password = 'postgres'
         }
         generator {
             name = 'org.jooq.codegen.DefaultGenerator'
             database {
-                name = 'org.jooq.meta.h2.H2Database'
-                inputSchema = ''
+                name = 'org.jooq.meta.postgres.PostgresDatabase'
+                inputSchema = 'public'
                 includes = '.*'
                 excludes = ''
             }
             target {
-                packageName = 'com.yg.gqlwfdl.yg.db'
+                packageName = 'com.yg.gqlwfdl.dataaccess.db'
                 directory = 'src/main/java'
             }
         }

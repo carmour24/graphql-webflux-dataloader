@@ -1,6 +1,7 @@
 package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CompanyRepository
+import com.yg.gqlwfdl.withLogging
 import graphql.schema.DataFetchingEnvironment
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
@@ -37,5 +38,5 @@ class DefaultCompanyService(private val companyRepository: CompanyRepository) : 
             companyRepository.findAll(env)
 
     override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<Company>> =
-            companyRepository.findByIds(ids, env)
+            withLogging("getting companies with IDs $ids") { companyRepository.findByIds(ids, env) }
 }

@@ -1,17 +1,21 @@
 # GraphQL, Spring WebFlux, DataLoader, JOOQ
 
-This is a sample GraphQL application written in Kotlin that uses 
-[graphql-java](https://github.com/graphql-java/graphql-java) and Spring WebFlux (with Spring Boot 2), additionally using
-[java-dataloader](https://github.com/graphql-java/java-dataloader) and [jOOQ](https://www.jooq.org/). This is forked
-from https://github.com/geowarin/graphql-webflux, to show how support for DataLoader can be added, and to add some
-custom functionality related to adding database joins based on requested GraphQL fields.
+This is a sample application written in Kotlin that uses the following technologies:
+* [Spring WebFlux](https://docs.spring.io/spring/docs/current/spring-framework-reference/web-reactive.html)
+* [graphql-java](https://github.com/graphql-java/graphql-java)
+* [java-dataloader](https://github.com/graphql-java/java-dataloader)
+* [jOOQ](https://www.jooq.org/)
+* [reactive-pg-client](https://github.com/reactiverse/reactive-pg-client/)
 
-The application shows how a GraphQL endpoint can be exposed using Spring Boot WebFlux. GraphQL requests are handled in a
-non-blocking way all the way down to the point of fetching the data from the database, using jOOQ. Since this last part
-currently relies on JDBC (which is blocking), to prevent blocking the main threads, all database work is executed on a
-thread from a dedicated thread pool. See
-[here](https://blog.jooq.org/2014/09/23/asynchronous-sql-execution-with-jooq-and-java-8s-completablefuture/) for more
-details on this.
+This was originally forked from [https://github.com/geowarin/graphql-webflux](https://github.com/geowarin/graphql-webflux)
+and has been expanded to:
+* Add support for data caching/batching using DataLoader
+* Add some custom functionality related to adding database joins based on requested GraphQL fields.
+* Show how data can be fetched from an underlying Postgres database using a combination of jOOQ and reactive-pg-client.
+
+The application shows how a GraphQL endpoint can be exposed using Spring WebFlux, in a Spring Boot application. GraphQL
+requests are handled in a non-blocking way (with non-blocking database access being supplied by the reactive-pg-client
+libraries).
 
 As well as GraphQL, DataLoader is used to prevent the
 [N+1 problem](https://medium.com/@gajus/using-dataloader-to-batch-requests-c345f4b23433).
@@ -21,28 +25,35 @@ solve (in a much more simplified and cut down way) what [Join Monster](https://j
 a JavaScript environment, namely adding joins to database queries based on what GraphQL fields are requested.
 
 ## Instructions
-Load the project into your IDE (I'm using IntelliJ) and run the `GraphQLApplication` class. This will start a Spring Boot
-application serving GraphQL requests.
-
-Open `localhost:8080` in your browser. You will see the [GraphiQL](https://github.com/graphql/graphiql) explorer.
-There you can start making GraphQL calls. The underlying H2 database is populated with test data at application
-startup so you can immediately make a call such as:
-```
-{
-  customers {
-    id
-    firstName
-    lastName
-    company {
-      id
-      name
-      address
-    }
-  }
-}
-```
-
 (Please note the [Pre-Requisites](#pre-requisites) section first.)
+1. Follow the instructions in the readme in the [Docker](./docker) folder to bring up a Docker container with Postgres
+installed, and a sample database created in it.
+1. Load the project into your IDE (I'm using IntelliJ) and run the `GraphQLApplication` class. This will start a Spring Boot
+application serving GraphQL requests.
+1. Open `localhost:8080` in your browser. You will see the [GraphiQL](https://github.com/graphql/graphiql) explorer.
+There you can start making GraphQL calls.
+1. On the very first run, you'll need to create some sample data in your database. Do this by issuing the following
+GraphQL request:
+    ```
+    mutation { 
+      createTestData
+    }
+    ```
+1. Once you have done that, you'll be able to start querying that information, e.g. by making a call such as:
+    ```
+    {
+      customers {
+        id
+        firstName
+        lastName
+        company {
+          id
+          name
+          address
+        }
+      }
+    }
+    ```
 
 ## Project Structure
 This project is structured as follows:
@@ -139,10 +150,12 @@ mentioned, and possibly some other tweaking.
 * Joins added (i.e. joins automatically added based on requested GraphQL fields)
 * Repositories based on multiple tables now supported.
 * Entities and GraphQL fields whose data is based on multiple tables supported in join-handling solution.
+* reactive-pg-client swapped in for actual database execution in a fully non-reactive way, rather than using jOOQ's
+[fetchAsync](https://www.jooq.org/doc/3.11/manual/sql-execution/fetching/later-fetching/) method, which relies on
+delegating work to a dedicated thread pool.
+* Postgres database (running in a Docker container) swapped in for previous use of H2 database.
 
 ## To Do
-* Investigate the possibility of using a non-blocking database driver (e.g. for Postgres) to provide truly non-blocking
-data access.
 * Currently this only works with one-to-one and many-to-one joins: one-to-many joins change the number of returned
 records, and things get even more complicated when multiple one-to-many joins are included, so need to think about
 whether this is desirable. Possibly compare with what [Join Monster](https://github.com/acarl005/join-monster) does.

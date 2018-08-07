@@ -1,6 +1,6 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
-import com.yg.gqlwfdl.yg.db.public_.Tables.*
+import com.yg.gqlwfdl.dataaccess.db.Tables.*
 
 /**
  * Join from the [PRICING_DETAILS] table to the [VAT_RATE] table.

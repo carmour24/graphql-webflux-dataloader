@@ -2,7 +2,6 @@ package com.yg.gqlwfdl.dataaccess.joins
 
 import graphql.language.Field
 import org.jooq.Record
-import org.jooq.Table
 import org.jooq.TableField
 
 /**
@@ -37,10 +36,4 @@ data class JoinDefinition<TFieldType : Any, TPrimaryRecord : Record, TForeignRec
             : JoinRequest<TFieldType, TPrimaryRecord, TForeignRecord> {
         return JoinRequest(this, mapper.getJoinRequests(graphQLField, foreignField.table).plus(subsequentJoinRequests))
     }
-
-    /**
-     * Gets an instance of the foreign table, aliased to ensure it has a unique name in the query.
-     */
-    fun getAliasedForeignTable(primaryTableInstance: Table<TPrimaryRecord>): Table<TForeignRecord> =
-            foreignField.table.`as`("${primaryTableInstance.name}_$name")
 }

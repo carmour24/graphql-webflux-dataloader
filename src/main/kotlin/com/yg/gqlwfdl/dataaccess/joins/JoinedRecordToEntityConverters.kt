@@ -132,7 +132,6 @@ abstract class MultiTypeJoinedRecordToEntityConverter<TPrimaryRecord : Record, T
  * @property converter A function which will receive the primary record and joined foreign record, and which should
  * return the [TEntity] object based on the data in those records.
  */
-@Suppress("unused")
 class MultiTypeJoinedRecordToEntityConverter1<
         TPrimaryRecord : Record, TForeignRecord : Record, TEntity : Entity<out Any>>(
         primaryRecordClass: Class<TPrimaryRecord>,
@@ -162,7 +161,6 @@ class MultiTypeJoinedRecordToEntityConverter1<
  * @property converter A function which will receive the primary record and the two joined foreign records, and which
  * should return the [TEntity] object based on the data in those records.
  */
-@Suppress("unused")
 class MultiTypeJoinedRecordToEntityConverter2<
         TPrimaryRecord : Record, TForeignRecord1 : Record, TForeignRecord2 : Record, TEntity : Entity<out Any>>(
         primaryRecordClass: Class<TPrimaryRecord>,

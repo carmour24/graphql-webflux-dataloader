@@ -2,11 +2,9 @@ package com.yg.gqlwfdl
 
 import com.coxautodev.graphql.tools.SchemaParser
 import com.coxautodev.graphql.tools.SchemaParserOptions
+import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.dataloaders.DataLoaderFactory
-import com.yg.gqlwfdl.resolvers.CompanyResolver
-import com.yg.gqlwfdl.resolvers.CustomerResolver
-import com.yg.gqlwfdl.resolvers.PricingDetailsResolver
-import com.yg.gqlwfdl.resolvers.Query
+import com.yg.gqlwfdl.resolvers.*
 import com.yg.gqlwfdl.services.CompanyPartnershipService
 import com.yg.gqlwfdl.services.CompanyService
 import com.yg.gqlwfdl.services.CustomerService
@@ -41,9 +39,10 @@ private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 class GraphQLRoutes(customerService: CustomerService,
                     companyService: CompanyService,
                     companyPartnershipService: CompanyPartnershipService,
-                    private val dataLoaderFactory: DataLoaderFactory) {
+                    private val dataLoaderFactory: DataLoaderFactory,
+                    dbConfig: DBConfig) {
 
-    private val schema = buildSchema(customerService, companyService, companyPartnershipService)
+    private val schema = buildSchema(customerService, companyService, companyPartnershipService, dbConfig)
 
     /**
      * Sets up the routes (i.e. handles GET and POST to /graphql, and also serves up the graphiql HTML page).
@@ -51,7 +50,7 @@ class GraphQLRoutes(customerService: CustomerService,
     @Bean
     fun router() = router {
         GET("/", serveStatic(ClassPathResource("/graphiql.html")))
-        (POST("/graphql") or GET("/graphql")).invoke { req: ServerRequest ->
+        (POST("/graphql") or GET("/graphql")).invoke { req ->
             getGraphQLParameters(req)
                     .flatMap { executeGraphQLQuery(it) }
                     .flatMap { ok().syncBody(it) }
@@ -126,7 +125,8 @@ private fun getVariables(req: ServerRequest): Map<String, Any>? {
  */
 private fun buildSchema(customerService: CustomerService,
                         companyService: CompanyService,
-                        companyPartnershipService: CompanyPartnershipService): GraphQLSchema {
+                        companyPartnershipService: CompanyPartnershipService,
+                        dbConfig: DBConfig): GraphQLSchema {
 
     return SchemaParser.newParser()
             .file("schema.graphqls")
@@ -134,7 +134,8 @@ private fun buildSchema(customerService: CustomerService,
                     Query(customerService, companyService, companyPartnershipService),
                     CustomerResolver(),
                     CompanyResolver(),
-                    PricingDetailsResolver())
+                    PricingDetailsResolver(),
+                    Mutation(dbConfig))
             .options(SchemaParserOptions.newOptions()
                     .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))
                     .build())
