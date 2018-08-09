@@ -1,8 +1,8 @@
 package com.yg.gqlwfdl.services
 
+import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.dataaccess.ProductRepository
 import com.yg.gqlwfdl.withLogging
-import graphql.schema.DataFetchingEnvironment
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -15,32 +15,36 @@ interface ProductService {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Product] objects.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findAll(env: DataFetchingEnvironment? = null): CompletableFuture<List<Product>>
+    fun findAll(requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Product>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Product] objects with the
      * passed in IDs.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findByIds(ids: List<Long>, env: DataFetchingEnvironment? = null): CompletableFuture<List<Product>>
+    fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Product>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Product] objects with the
      * passed in IDs, along with their order counts, wrapped in an [ProductOrderCount] object.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findWithOrderCount(ids: List<Long>, env: DataFetchingEnvironment? = null): CompletableFuture<List<ProductOrderCount>>
+    fun findWithOrderCount(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<ProductOrderCount>>
 
     /**
      * Gets the top [count] best selling products.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findTopSelling(count: Int, env: DataFetchingEnvironment?): CompletableFuture<List<ProductOrderCount>>
+    fun findTopSelling(count: Int, requestInfo: EntityRequestInfo?): CompletableFuture<List<ProductOrderCount>>
 }
 
 /**
@@ -48,13 +52,14 @@ interface ProductService {
  */
 @Service
 class DefaultProductService(private val productRepository: ProductRepository) : ProductService {
-    override fun findAll(env: DataFetchingEnvironment?) = productRepository.findAll(env)
+    override fun findAll(requestInfo: EntityRequestInfo?) = productRepository.findAll(requestInfo)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) =
-            withLogging("getting companies with IDs $ids") { productRepository.findByIds(ids, env) }
+    override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
+            withLogging("getting companies with IDs $ids") { productRepository.findByIds(ids, requestInfo) }
 
-    override fun findWithOrderCount(ids: List<Long>, env: DataFetchingEnvironment?) =
-            productRepository.findWithOrderCount(ids, env)
+    override fun findWithOrderCount(ids: List<Long>, requestInfo: EntityRequestInfo?) =
+            productRepository.findWithOrderCount(ids, requestInfo)
 
-    override fun findTopSelling(count: Int, env: DataFetchingEnvironment?) = productRepository.findTopSelling(count, env)
+    override fun findTopSelling(count: Int, requestInfo: EntityRequestInfo?) =
+            productRepository.findTopSelling(count, requestInfo)
 }

@@ -1,7 +1,6 @@
 package com.yg.gqlwfdl.dataaccess
 
 import com.yg.gqlwfdl.services.Entity
-import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -13,18 +12,18 @@ interface EntityRepository<TEntity : Entity<TId>, TId : Any> {
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all the [TEntity] items in the
      * system.
      *
-     * @param env The GraphQL data fetching environment from which this call was made, if it was made from that context.
-     * Can be null if not working within a GraphQL context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findAll(env: DataFetchingEnvironment? = null): CompletableFuture<List<TEntity>>
+    fun findAll(requestInfo: EntityRequestInfo? = null): CompletableFuture<List<TEntity>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all the [TEntity] items which have
      * the passed in IDs.
      *
      * @param ids The IDs of the items to be found.
-     * @param env The GraphQL data fetching environment from which this call was made, if it was made from that context.
-     * Can be null if not working within a GraphQL context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findByIds(ids: List<TId>, env: DataFetchingEnvironment? = null): CompletableFuture<List<TEntity>>
+    fun findByIds(ids: List<TId>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<TEntity>>
 }

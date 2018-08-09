@@ -2,7 +2,7 @@ package com.yg.gqlwfdl.dataaccess
 
 import com.yg.gqlwfdl.dataaccess.db.Tables.CUSTOMER
 import com.yg.gqlwfdl.dataaccess.db.tables.records.CustomerRecord
-import com.yg.gqlwfdl.dataaccess.joins.GraphQLFieldToJoinMapper
+import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.services.Customer
@@ -25,10 +25,10 @@ interface CustomerRepository : EntityRepository<Customer, Long>
 class DBCustomerRepository(create: DSLContext,
                            connectionPool: PgPool,
                            recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
-                           graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
+                           clientFieldToJoinMapper: ClientFieldToJoinMapper,
                            recordProvider: RecordProvider)
     : DBEntityRepository<Customer, Long, CustomerRecord, QueryInfo<CustomerRecord>>(
-        create, connectionPool, recordToEntityConverterProvider, graphQLFieldToJoinMapper, recordProvider,
+        create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
         CustomerRepository {
 

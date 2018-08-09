@@ -1,10 +1,11 @@
 package com.yg.gqlwfdl.dataaccess
 
-import com.yg.gqlwfdl.*
 import com.yg.gqlwfdl.dataaccess.joins.*
+import com.yg.gqlwfdl.letIfAny
+import com.yg.gqlwfdl.logMessage
 import com.yg.gqlwfdl.services.Entity
 import com.yg.gqlwfdl.services.EntityWrapper
-import graphql.schema.DataFetchingEnvironment
+import com.yg.gqlwfdl.withLogging
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
 import org.jooq.*
@@ -12,16 +13,14 @@ import org.jooq.conf.ParamType
 import reactor.core.publisher.Mono
 import reactor.core.publisher.MonoSink
 import java.util.concurrent.CompletableFuture
-import graphql.language.Field as GraphQLField
 
 /**
  * A repository providing access to an entity (aka domain model object) (of type [TEntity]), by querying one or more
  * database tables.
  *
- * When [findAll] or [findByIds] are called, the passed in [DataFetchingEnvironment] (if any) is interrogated to see if
- * any joins need to be added to the generated database queries, based on the requested GraphQL fields. Additionally,
- * the [DataFetchingEnvironment.requestContext]'s [RequestContext.dataLoaderPrimerEntityCreationListener] is informed
- * of any created entities, unless a specific [EntityCreationListener] is passed in instead.
+ * When [findAll] or [findByIds] are called, the passed in [EntityRequestInfo] (if any) is interrogated to see if any
+ * joins need to be added to the generated database queries, based on the requested client fields. Additionally, its
+ * [creationListener][EntityRequestInfo.creationListener] is informed of any created entities.
  *
  * @param TEntity The type of the entity to which this repository provides access.
  * @param TId The type of value which defines the unique ID of the entity (typically corresponding to the type of the
@@ -34,7 +33,7 @@ import graphql.language.Field as GraphQLField
  * is automatically injected by spring-boot-starter-jooq.
  * @property connectionPool The database connection pool.
  * @property recordToEntityConverterProvider The object to convert [Record]s to [TEntity] objects.
- * @property graphQLFieldToJoinMapper The object to use when finding objects in the context of a GraphQL request, to
+ * @property clientFieldToJoinMapper The object to use when finding objects in the context of a GraphQL request, to
  * know which joins to add to the database queries, based on the requested GraphQL fields.
  * @property recordProvider An object which can extract data from a [Row] and convert it to the relevant [Record].
  * @property table The database table which this repository is providing access to. In the case where an entity is based on
@@ -46,113 +45,55 @@ abstract class DBEntityRepository<
         protected val create: DSLContext,
         private val connectionPool: PgPool,
         private val recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
-        private val graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
+        private val clientFieldToJoinMapper: ClientFieldToJoinMapper,
         private val recordProvider: RecordProvider,
         private val table: Table<TRecord>,
         private val idField: TableField<TRecord, TId>)
     : EntityRepository<TEntity, TId> {
 
     /**
-     * See [EntityRepository.findAll]. Note that in this implementation the passed in [DataFetchingEnvironment] (if any)
-     * is interrogated to see if any joins need to be added to the generated database queries, based on the requested
-     * GraphQL fields. Additionally, the [DataFetchingEnvironment.requestContext]'s
-     * [RequestContext.dataLoaderPrimerEntityCreationListener] is informed of any created entities.
+     * See [EntityRepository.findAll]. Note that in this implementation the passed in [EntityRequestInfo] (if any) is
+     * interrogated to see if any joins need to be added to the generated database queries, based on the requested
+     * client fields. Additionally, its [creationListener][EntityRequestInfo.creationListener] is informed of any
+     * created entities.
      */
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<TEntity>> {
-        return findAll(
-                env.getJoinRequests(),
-                env?.requestContext?.dataLoaderPrimerEntityCreationListener,
-                env?.field?.childFields)
-    }
-
-    /**
-     * See [EntityRepository.findByIds]. Note that in this implementation the passed in [DataFetchingEnvironment] (if any)
-     * is interrogated to see if any joins need to be added to the generated database queries, based on the requested
-     * GraphQL fields. Additionally, the [DataFetchingEnvironment.requestContext]'s
-     * [RequestContext.dataLoaderPrimerEntityCreationListener] is informed of any created entities.
-     */
-    override fun findByIds(ids: List<TId>, env: DataFetchingEnvironment?): CompletableFuture<List<TEntity>> {
-        return findByIds(
-                ids,
-                env.getJoinRequests(),
-                env?.requestContext?.dataLoaderPrimerEntityCreationListener,
-                env?.field?.childFields)
-    }
-
-    /**
-     * Returns a [CompletableFuture] which, when completed, will provide a [List] of all the [TEntity] items in the
-     * underlying database table.
-     *
-     * @param joinRequests The joins that should be added to the query to fetch related items, if any are required.
-     * @param entityCreationListener The listener to inform whenever an [Entity] is created. This is done by calling it
-     * [EntityCreationListener.onEntityCreated] function.
-     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
-     * of a GraphQL request.
-     */
-    protected open fun findAll(joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                               entityCreationListener: EntityCreationListener?,
-                               graphQLFields: List<GraphQLField>? = null)
-            : CompletableFuture<List<TEntity>> {
-
+    override fun findAll(requestInfo: EntityRequestInfo?): CompletableFuture<List<TEntity>> {
         return withLogging("querying ${table.name} for all records") {
-            find(entityCreationListener, joinRequests, graphQLFields)
+            find(requestInfo)
         }
     }
 
     /**
-     * Returns a [CompletableFuture] which, when completed, will provide a [List] of all the [TEntity] items which have
-     * the passed in IDs, in the underlying database table.
-     *
-     * @param ids The IDs of the items to be found.
-     * @param joinRequests The joins that should be added to the query to fetch related items, if any are required.
-     * @param entityCreationListener The listener to inform whenever an [Entity] is created. This is done by calling it
-     * [EntityCreationListener.onEntityCreated] function.
-     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
-     * of a GraphQL request.
+     * See [EntityRepository.findByIds]. Note that in this implementation the passed in [EntityRequestInfo] (if any) is
+     * interrogated to see if any joins need to be added to the generated database queries, based on the requested
+     * client fields. Additionally, its [creationListener][EntityRequestInfo.creationListener] is informed of any
+     * created entities.
      */
-    protected open fun findByIds(ids: List<TId>,
-                                 joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                                 entityCreationListener: EntityCreationListener?,
-                                 graphQLFields: List<GraphQLField>? = null)
+    override fun findByIds(ids: List<TId>, requestInfo: EntityRequestInfo?): CompletableFuture<List<TEntity>> {
+        return withLogging("querying ${table.name} for records with IDs $ids") {
+            find(requestInfo) { listOf(it.primaryTable.field(idField).`in`(ids)) }
+        }
+    }
+
+    /**
+     * Finds all the records that match the conditions supplied by the passed in [conditionProvider], if any.
+     *
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
+     * @param conditionProvider The object that will supply any conditions that should be added to the query. If null,
+     * no conditions are applied, and every record is returned.
+     */
+    protected open fun find(requestInfo: EntityRequestInfo? = null,
+                            conditionProvider: ((TQueryInfo) -> List<Condition>)? = null)
             : CompletableFuture<List<TEntity>> {
 
-        return withLogging("querying ${table.name} for records with IDs $ids") {
-            find(entityCreationListener, joinRequests, graphQLFields) {
-                listOf(it.primaryTable.field(idField).`in`(ids))
-            }
-        }
+        return find(
+                entityProvider = this::getEntity,
+                entityCreationListener = requestInfo?.creationListener,
+                joinRequests = requestInfo?.getJoinRequests(),
+                conditionProvider = conditionProvider
+        )
     }
-
-    /**
-     * Gets an instance of a [TQueryInfo] object to use to store information about a query as it's being built up and
-     * executed. The base implementation returns an actual [QueryInfo] object, using this repository's [table] as its
-     * [QueryInfo.primaryTable]. However subclasses can override if they need a specific implementation, e.g. one which
-     * stores specific instances of joined tables (typically used when a repository works with data based on more than
-     * one table).
-     */
-    // Ignore unsafe cast - we know this is safe.
-    @Suppress("UNCHECKED_CAST")
-    protected open fun getQueryInfo(table: Table<TRecord> = this.table) = QueryInfo(table) as TQueryInfo
-
-    /**
-     * Gets the main record (i.e. a row from the main table this repository is working with), from the passed in [row]
-     *
-     * @param queryInfo The information about the query from which the entity is to be retrieved, used for example to
-     * get at the aliased fields' names.
-     * @param row A row containing all the data in a single result row from a query generated by this repository
-     * when finding the items it's working with.
-     */
-    protected abstract fun getRecord(queryInfo: TQueryInfo, row: Row): TRecord
-
-    /**
-     * Creates the entity which this repository provides access to from the passed in [row].
-     *
-     * @param queryInfo The information about the query from which the entity is to be retrieved, used for example to
-     * get at the aliased fields' names.
-     * @param row A row containing all the data in a single result row from a query generated by this repository
-     * when finding the items it's working with.
-     */
-    protected abstract fun getEntity(queryInfo: TQueryInfo, row: Row): TEntity
 
     /**
      * Runs a SELECT query on the passed in [queryInfo]'s [primaryTable][QueryInfo.primaryTable], optionally adding
@@ -227,28 +168,35 @@ abstract class DBEntityRepository<
     }
 
     /**
-     * Finds all the records that match the conditions supplied by the passed in [conditionProvider], if any.
-     *
-     * @param entityCreationListener The listener to inform whenever an [Entity] is found. Ignored if null.
-     * @param joinRequests Any joins that should be added to the query. Ignored if null.
-     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
-     * of a GraphQL request.
-     * @param conditionProvider The object that will supply any conditions that should be added to the query. If null,
-     * no conditions are applied, and every record is returned.
+     * Gets an instance of a [TQueryInfo] object to use to store information about a query as it's being built up and
+     * executed. The base implementation returns an actual [QueryInfo] object, using this repository's [table] as its
+     * [QueryInfo.primaryTable]. However subclasses can override if they need a specific implementation, e.g. one which
+     * stores specific instances of joined tables (typically used when a repository works with data based on more than
+     * one table).
      */
-    protected open fun find(entityCreationListener: EntityCreationListener?,
-                            joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                            graphQLFields: List<GraphQLField>? = null,
-                            conditionProvider: ((TQueryInfo) -> List<Condition>)? = null)
-            : CompletableFuture<List<TEntity>> {
+    // Ignore unsafe cast - we know this is safe.
+    @Suppress("UNCHECKED_CAST")
+    protected open fun getQueryInfo(table: Table<TRecord> = this.table) = QueryInfo(table) as TQueryInfo
 
-        return find(
-                entityProvider = this::getEntity,
-                entityCreationListener = entityCreationListener,
-                joinRequests = joinRequests,
-                conditionProvider = conditionProvider
-        )
-    }
+    /**
+     * Gets the main record (i.e. a row from the main table this repository is working with), from the passed in [row]
+     *
+     * @param queryInfo The information about the query from which the entity is to be retrieved, used for example to
+     * get at the aliased fields' names.
+     * @param row A row containing all the data in a single result row from a query generated by this repository
+     * when finding the items it's working with.
+     */
+    protected abstract fun getRecord(queryInfo: TQueryInfo, row: Row): TRecord
+
+    /**
+     * Creates the entity which this repository provides access to from the passed in [row].
+     *
+     * @param queryInfo The information about the query from which the entity is to be retrieved, used for example to
+     * get at the aliased fields' names.
+     * @param row A row containing all the data in a single result row from a query generated by this repository
+     * when finding the items it's working with.
+     */
+    protected abstract fun getEntity(queryInfo: TQueryInfo, row: Row): TEntity
 
     /**
      * Gets the joins which are needed by default by this repository (i.e. regardless of what joins are requested by a
@@ -328,11 +276,11 @@ abstract class DBEntityRepository<
     }
 
     /**
-     * Gets the join requests from `this` [DataFetchingEnvironment], using this [DBEntityRepository] object's
-     * [graphQLFieldToJoinMapper].
+     * Gets the join requests from `this` [EntityRequestInfo], using this [DBEntityRepository] object's
+     * [clientFieldToJoinMapper].
      */
-    protected fun DataFetchingEnvironment?.getJoinRequests() =
-            this?.field?.let { graphQLFieldToJoinMapper.getJoinRequests(it, table) }
+    protected fun EntityRequestInfo?.getJoinRequests() =
+            this?.childFields?.letIfAny { clientFieldToJoinMapper.getJoinRequests(it, table) }
 
 
     // Below is the code for working with Fluxes rather than CompletableFuture<List<T>>...

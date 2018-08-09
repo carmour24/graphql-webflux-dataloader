@@ -30,10 +30,10 @@ interface PricingDetailsRepository : EntityRepository<PricingDetails, Long>
 class DBPricingDetailsRepository(create: DSLContext,
                                  connectionPool: PgPool,
                                  recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
-                                 graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
+                                 clientFieldToJoinMapper: ClientFieldToJoinMapper,
                                  recordProvider: RecordProvider)
     : DBEntityRepository<PricingDetails, Long, PricingDetailsRecord, PricingDetailsQueryInfo>(
-        create, connectionPool, recordToEntityConverterProvider, graphQLFieldToJoinMapper, recordProvider,
+        create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         PRICING_DETAILS, PRICING_DETAILS.ID),
         PricingDetailsRepository {
 

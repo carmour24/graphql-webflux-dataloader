@@ -9,7 +9,7 @@ import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoaderRegistry
 
 /**
- * An object representing the context of a single HTTP request (i.e. a GraphQL request). Passed from the GraphQL
+ * An object representing the context of a single HTTP request (e.g. a GraphQL request). Passed from the GraphQL
  * entry points to the resolvers by storing it in the [ExecutionInput.context]. This allows the resolvers to then
  * retrieve it by calling the [DataFetchingEnvironment.getContext] method. The primary use of this object is to provide
  * access to the [DataLoaderRegistry] so that the resolvers have access to the (request-scoped) data loaders.
@@ -37,9 +37,3 @@ class RequestContext(private val dataLoaderRegistry: DataLoaderRegistry) {
      */
     val dataLoaderPrimerEntityCreationListener = DataLoaderPrimerEntityCreationListener(this)
 }
-
-/**
- * Gets the [RequestContext] of the current request from the receiver, which is the current [DataFetchingEnvironment].
- */
-val DataFetchingEnvironment.requestContext: RequestContext
-    get() = this.getContext<RequestContext>()

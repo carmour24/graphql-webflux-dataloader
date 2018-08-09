@@ -2,7 +2,7 @@ package com.yg.gqlwfdl.dataaccess
 
 import com.yg.gqlwfdl.dataaccess.db.Tables.COMPANY
 import com.yg.gqlwfdl.dataaccess.db.tables.records.CompanyRecord
-import com.yg.gqlwfdl.dataaccess.joins.GraphQLFieldToJoinMapper
+import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.services.Company
@@ -25,10 +25,10 @@ interface CompanyRepository : EntityRepository<Company, Long>
 class DBCompanyRepository(create: DSLContext,
                           connectionPool: PgPool,
                           recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
-                          graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
+                          clientFieldToJoinMapper: ClientFieldToJoinMapper,
                           recordProvider: RecordProvider)
     : DBEntityRepository<Company, Long, CompanyRecord, QueryInfo<CompanyRecord>>(
-        create, connectionPool, recordToEntityConverterProvider, graphQLFieldToJoinMapper, recordProvider,
+        create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         COMPANY, COMPANY.ID),
         CompanyRepository {
 

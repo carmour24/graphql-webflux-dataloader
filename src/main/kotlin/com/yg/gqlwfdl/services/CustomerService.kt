@@ -1,7 +1,7 @@
 package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CustomerRepository
-import graphql.schema.DataFetchingEnvironment
+import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -14,17 +14,19 @@ interface CustomerService {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Customer]s.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findAll(env: DataFetchingEnvironment? = null): CompletableFuture<List<Customer>>
+    fun findAll(requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Customer]s with the passed in
      * IDs.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findByIds(ids: List<Long>, env: DataFetchingEnvironment? = null): CompletableFuture<List<Customer>>
+    fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
 }
 
 /**
@@ -34,7 +36,8 @@ interface CustomerService {
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
 
-    override fun findAll(env: DataFetchingEnvironment?) = customerRepository.findAll(env)
+    override fun findAll(requestInfo: EntityRequestInfo?) = customerRepository.findAll(requestInfo)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) = customerRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
+            customerRepository.findByIds(ids, requestInfo)
 }

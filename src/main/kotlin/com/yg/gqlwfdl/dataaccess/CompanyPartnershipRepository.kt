@@ -26,10 +26,10 @@ interface CompanyPartnershipRepository : EntityRepository<CompanyPartnership, Lo
 class DBCompanyPartnershipRepository(create: DSLContext,
                                      connectionPool: PgPool,
                                      recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
-                                     graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
+                                     clientFieldToJoinMapper: ClientFieldToJoinMapper,
                                      recordProvider: RecordProvider)
     : DBEntityRepository<CompanyPartnership, Long, CompanyPartnershipRecord, CompanyPartnershipQueryInfo>(
-        create, connectionPool, recordToEntityConverterProvider, graphQLFieldToJoinMapper, recordProvider,
+        create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         COMPANY_PARTNERSHIP, COMPANY_PARTNERSHIP.ID),
         CompanyPartnershipRepository {
 
