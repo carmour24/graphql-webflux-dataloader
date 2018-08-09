@@ -73,7 +73,7 @@ data class CompanyPartnershipRecords(val companyPartnershipRecord: CompanyPartne
     /**
      * Converts this [CompanyPartnershipRecords] object to its corresponding entity, a [CompanyPartnership] object.
      */
-    fun toEntity() = CompanyPartnership(companyPartnershipRecord.id, companyARecord.toEntity(), companyBRecord.toEntity() )
+    fun toEntity() = CompanyPartnership(companyPartnershipRecord.id, companyARecord.toEntity(), companyBRecord.toEntity())
 }
 
 /**

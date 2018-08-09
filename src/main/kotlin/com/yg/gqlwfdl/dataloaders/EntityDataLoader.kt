@@ -31,6 +31,7 @@ class EntityDataLoader<TId, TEntity : Entity<TId>>(loader: (List<TId>) -> Comple
      * then be interrogated to see what company-related information is requested, in case more joins need to be
      * included to fetch this data.
      */
+    // TODO: revisit this field - it's not currently being used for anything. Do we still need it?
     val sourceGraphQLFields = mutableListOf<Field>()
 
     /**

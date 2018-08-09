@@ -34,9 +34,7 @@ interface CompanyPartnershipService {
 class DefaultCompanyPartnershipService(private val companyPartnershipRepository: CompanyPartnershipRepository)
     : CompanyPartnershipService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<CompanyPartnership>> =
-            companyPartnershipRepository.findAll(env)
+    override fun findAll(env: DataFetchingEnvironment?) = companyPartnershipRepository.findAll(env)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<CompanyPartnership>> =
-            companyPartnershipRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) = companyPartnershipRepository.findByIds(ids, env)
 }

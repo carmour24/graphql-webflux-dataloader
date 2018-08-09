@@ -8,8 +8,11 @@ import com.yg.gqlwfdl.dataaccess.db.tables.Company;
 import com.yg.gqlwfdl.dataaccess.db.tables.CompanyPartnership;
 import com.yg.gqlwfdl.dataaccess.db.tables.Customer;
 import com.yg.gqlwfdl.dataaccess.db.tables.DiscountRate;
+import com.yg.gqlwfdl.dataaccess.db.tables.Order;
+import com.yg.gqlwfdl.dataaccess.db.tables.OrderLine;
 import com.yg.gqlwfdl.dataaccess.db.tables.PaymentMethod;
 import com.yg.gqlwfdl.dataaccess.db.tables.PricingDetails;
+import com.yg.gqlwfdl.dataaccess.db.tables.Product;
 import com.yg.gqlwfdl.dataaccess.db.tables.VatRate;
 
 import javax.annotation.Generated;
@@ -40,8 +43,11 @@ public class Indexes {
     public static final Index COMPANY_PARTNERSHIP_PKEY = Indexes0.COMPANY_PARTNERSHIP_PKEY;
     public static final Index CUSTOMER_PKEY = Indexes0.CUSTOMER_PKEY;
     public static final Index DISCOUNT_RATE_PKEY = Indexes0.DISCOUNT_RATE_PKEY;
+    public static final Index ORDER_PKEY = Indexes0.ORDER_PKEY;
+    public static final Index ORDER_LINE_PKEY = Indexes0.ORDER_LINE_PKEY;
     public static final Index PAYMENT_METHOD_PKEY = Indexes0.PAYMENT_METHOD_PKEY;
     public static final Index PRICING_DETAILS_PKEY = Indexes0.PRICING_DETAILS_PKEY;
+    public static final Index PRODUCT_PKEY = Indexes0.PRODUCT_PKEY;
     public static final Index VAT_RATE_PKEY = Indexes0.VAT_RATE_PKEY;
 
     // -------------------------------------------------------------------------
@@ -53,8 +59,11 @@ public class Indexes {
         public static Index COMPANY_PARTNERSHIP_PKEY = Internal.createIndex("company_partnership_pkey", CompanyPartnership.COMPANY_PARTNERSHIP, new OrderField[] { CompanyPartnership.COMPANY_PARTNERSHIP.ID }, true);
         public static Index CUSTOMER_PKEY = Internal.createIndex("customer_pkey", Customer.CUSTOMER, new OrderField[] { Customer.CUSTOMER.ID }, true);
         public static Index DISCOUNT_RATE_PKEY = Internal.createIndex("discount_rate_pkey", DiscountRate.DISCOUNT_RATE, new OrderField[] { DiscountRate.DISCOUNT_RATE.ID }, true);
+        public static Index ORDER_PKEY = Internal.createIndex("order_pkey", Order.ORDER, new OrderField[] { Order.ORDER.ID }, true);
+        public static Index ORDER_LINE_PKEY = Internal.createIndex("order_line_pkey", OrderLine.ORDER_LINE, new OrderField[] { OrderLine.ORDER_LINE.ID }, true);
         public static Index PAYMENT_METHOD_PKEY = Internal.createIndex("payment_method_pkey", PaymentMethod.PAYMENT_METHOD, new OrderField[] { PaymentMethod.PAYMENT_METHOD.ID }, true);
         public static Index PRICING_DETAILS_PKEY = Internal.createIndex("pricing_details_pkey", PricingDetails.PRICING_DETAILS, new OrderField[] { PricingDetails.PRICING_DETAILS.ID }, true);
+        public static Index PRODUCT_PKEY = Internal.createIndex("product_pkey", Product.PRODUCT, new OrderField[] { Product.PRODUCT.ID }, true);
         public static Index VAT_RATE_PKEY = Internal.createIndex("vat_rate_pkey", VatRate.VAT_RATE, new OrderField[] { VatRate.VAT_RATE.ID }, true);
     }
 }

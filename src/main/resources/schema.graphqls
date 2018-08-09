@@ -27,11 +27,21 @@ type PricingDetails {
   preferredPaymentMethodDescription: String!
 }
 
+type Product {
+  id: ID!
+  description: String!
+  price: Float!
+  company: Company!
+  orderCount: Int!
+}
+
 type Query {
   customers: [Customer]
   customersByIds(ids: [Int]!): [Customer]
   companies: [Company]
   companyPartnerships: [CompanyPartnership]
+  products: [Product]
+  topSellingProducts(count: Int!): [Product]
 }
 
 type Mutation {

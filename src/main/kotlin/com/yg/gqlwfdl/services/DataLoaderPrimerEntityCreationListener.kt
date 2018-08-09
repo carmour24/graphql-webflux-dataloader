@@ -10,7 +10,21 @@ import com.yg.gqlwfdl.dataloaders.DataLoaderType
  */
 class DataLoaderPrimerEntityCreationListener(private val requestContext: RequestContext) : EntityCreationListener {
 
-    override fun onEntityCreated(entity: Entity<out Any>) {
+    /**
+     * A map of all the known entity cachers. Keyed on the class of the [Entity] being cached, where the value is the
+     * [EntityCacher] itself. When requesting an object from this map, if a non-null value is returned for a given class,
+     * then the returned value can be safely cast to that class.
+     */
+    private val cachers: Map<Class<out Entity<*>>, EntityCacher<out Any, *>> = listOf(
+            EntityCacher(DataLoaderType.CUSTOMER, Customer::class.java),
+            EntityCacher(DataLoaderType.COMPANY, Company::class.java),
+            EntityCacher(DataLoaderType.COMPANY_PARTNERSHIP, CompanyPartnership::class.java),
+            EntityCacher(DataLoaderType.PRICING_DETAILS, PricingDetails::class.java),
+            EntityCacher(DataLoaderType.PRODUCT, Product::class.java),
+            EntityCacher(DataLoaderType.PRODUCT_ORDER_COUNT, ProductOrderCount::class.java)
+    ).map { it.entityClass to it }.toMap()
+
+    override fun onEntityCreated(entity: Entity<*>) {
         cachers[entity.javaClass]?.cache(requestContext, entity)
     }
 }
@@ -35,15 +49,3 @@ private class EntityCacher<TId, TEntity : Entity<out TId>>(
         requestContext.dataLoader<TId, TEntity>(dataLoaderType).prime(entity as TEntity)
     }
 }
-
-/**
- * A map of all the known entity cachers. Keyed on the class of the [Entity] being cached, where the value is the
- * [EntityCacher] itself. When requesting an object from this map, if a non-null value is returned for a given class,
- * then the returned value can be safely cast to that class.
- */
-private val cachers: Map<Class<out Entity<*>>, EntityCacher<out Any, *>> = listOf(
-        EntityCacher(DataLoaderType.CUSTOMER, Customer::class.java),
-        EntityCacher(DataLoaderType.COMPANY, Company::class.java),
-        EntityCacher(DataLoaderType.COMPANY_PARTNERSHIP, CompanyPartnership::class.java),
-        EntityCacher(DataLoaderType.PRICING_DETAILS, PricingDetails::class.java)
-).map { it.entityClass to it }.toMap()

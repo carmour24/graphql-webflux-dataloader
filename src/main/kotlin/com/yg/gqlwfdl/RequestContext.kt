@@ -3,6 +3,7 @@ package com.yg.gqlwfdl
 import com.yg.gqlwfdl.dataloaders.DataLoaderType
 import com.yg.gqlwfdl.dataloaders.EntityDataLoader
 import com.yg.gqlwfdl.services.DataLoaderPrimerEntityCreationListener
+import com.yg.gqlwfdl.services.Entity
 import graphql.ExecutionInput
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoaderRegistry
@@ -29,6 +30,11 @@ class RequestContext(private val dataLoaderRegistry: DataLoaderRegistry) {
     fun <K, V> dataLoader(type: DataLoaderType) =
             dataLoaderRegistry.getDataLoader<K, V>(type.registryKey) as EntityDataLoader
 
+    /**
+     * The object to be informed when [Entity] objects are created. Responds by priming the data loaders (i.e. pre-
+     * caching them with the entities, so that subsequent requests for those entities can use the cached values rather
+     * that querying for them again).
+     */
     val dataLoaderPrimerEntityCreationListener = DataLoaderPrimerEntityCreationListener(this)
 }
 

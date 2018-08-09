@@ -8,8 +8,11 @@ import com.yg.gqlwfdl.dataaccess.db.tables.Company;
 import com.yg.gqlwfdl.dataaccess.db.tables.CompanyPartnership;
 import com.yg.gqlwfdl.dataaccess.db.tables.Customer;
 import com.yg.gqlwfdl.dataaccess.db.tables.DiscountRate;
+import com.yg.gqlwfdl.dataaccess.db.tables.Order;
+import com.yg.gqlwfdl.dataaccess.db.tables.OrderLine;
 import com.yg.gqlwfdl.dataaccess.db.tables.PaymentMethod;
 import com.yg.gqlwfdl.dataaccess.db.tables.PricingDetails;
+import com.yg.gqlwfdl.dataaccess.db.tables.Product;
 import com.yg.gqlwfdl.dataaccess.db.tables.VatRate;
 
 import java.util.ArrayList;
@@ -37,7 +40,7 @@ import org.jooq.impl.SchemaImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Public extends SchemaImpl {
 
-    private static final long serialVersionUID = -576843766;
+    private static final long serialVersionUID = 2015954294;
 
     /**
      * The reference instance of <code>public</code>
@@ -65,6 +68,16 @@ public class Public extends SchemaImpl {
     public final DiscountRate DISCOUNT_RATE = com.yg.gqlwfdl.dataaccess.db.tables.DiscountRate.DISCOUNT_RATE;
 
     /**
+     * The table <code>public.order</code>.
+     */
+    public final Order ORDER = com.yg.gqlwfdl.dataaccess.db.tables.Order.ORDER;
+
+    /**
+     * The table <code>public.order_line</code>.
+     */
+    public final OrderLine ORDER_LINE = com.yg.gqlwfdl.dataaccess.db.tables.OrderLine.ORDER_LINE;
+
+    /**
      * The table <code>public.payment_method</code>.
      */
     public final PaymentMethod PAYMENT_METHOD = com.yg.gqlwfdl.dataaccess.db.tables.PaymentMethod.PAYMENT_METHOD;
@@ -73,6 +86,11 @@ public class Public extends SchemaImpl {
      * The table <code>public.pricing_details</code>.
      */
     public final PricingDetails PRICING_DETAILS = com.yg.gqlwfdl.dataaccess.db.tables.PricingDetails.PRICING_DETAILS;
+
+    /**
+     * The table <code>public.product</code>.
+     */
+    public final Product PRODUCT = com.yg.gqlwfdl.dataaccess.db.tables.Product.PRODUCT;
 
     /**
      * The table <code>public.vat_rate</code>.
@@ -108,8 +126,11 @@ public class Public extends SchemaImpl {
             Sequences.COMPANY_PARTNERSHIP_ID_SEQ,
             Sequences.CUSTOMER_ID_SEQ,
             Sequences.DISCOUNT_RATE_ID_SEQ,
+            Sequences.ORDER_ID_SEQ,
+            Sequences.ORDER_LINE_ID_SEQ,
             Sequences.PAYMENT_METHOD_ID_SEQ,
             Sequences.PRICING_DETAILS_ID_SEQ,
+            Sequences.PRODUCT_ID_SEQ,
             Sequences.VAT_RATE_ID_SEQ);
     }
 
@@ -126,8 +147,11 @@ public class Public extends SchemaImpl {
             CompanyPartnership.COMPANY_PARTNERSHIP,
             Customer.CUSTOMER,
             DiscountRate.DISCOUNT_RATE,
+            Order.ORDER,
+            OrderLine.ORDER_LINE,
             PaymentMethod.PAYMENT_METHOD,
             PricingDetails.PRICING_DETAILS,
+            Product.PRODUCT,
             VatRate.VAT_RATE);
     }
 }

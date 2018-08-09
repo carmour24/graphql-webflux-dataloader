@@ -34,9 +34,7 @@ interface CustomerService {
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<Customer>> =
-            customerRepository.findAll(env)
+    override fun findAll(env: DataFetchingEnvironment?) = customerRepository.findAll(env)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<Customer>> =
-            customerRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) = customerRepository.findByIds(ids, env)
 }

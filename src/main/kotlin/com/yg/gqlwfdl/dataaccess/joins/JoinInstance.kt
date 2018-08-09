@@ -20,8 +20,8 @@ import org.jooq.TableField
 class JoinInstance<TFieldType : Any, TPrimaryRecord : Record, TForeignRecord : Record>(
         private val definition: JoinDefinition<TFieldType, TPrimaryRecord, TForeignRecord>,
         val primaryFieldInstance: TableField<TPrimaryRecord, TFieldType>,
-        val foreignFieldInstance: TableField<TForeignRecord, TFieldType>,
-        val subsequentJoins: List<JoinInstance<out Any, TForeignRecord, out Record>> = listOf()) {
+        private val foreignFieldInstance: TableField<TForeignRecord, TFieldType>,
+        private val subsequentJoins: List<JoinInstance<out Any, TForeignRecord, out Record>> = listOf()) {
 
     /**
      * Updates the passed in [select] by adding a (left) join to this instance's foreign table. Then joins all the

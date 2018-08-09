@@ -136,3 +136,62 @@ CREATE SEQUENCE vat_rate_id_seq
 ALTER SEQUENCE vat_rate_id_seq OWNED BY vat_rate.id;
 
 ALTER TABLE ONLY vat_rate ALTER COLUMN id SET DEFAULT nextval('vat_rate_id_seq'::regclass);
+
+
+-- product table & sequence
+CREATE TABLE product (
+    id bigint NOT NULL CONSTRAINT product_pkey PRIMARY KEY,
+    description text NOT NULL,
+    price double precision NOT NULL,
+    company bigint NOT NULL
+);
+
+CREATE SEQUENCE product_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE product_id_seq OWNED BY product.id;
+
+ALTER TABLE ONLY product ALTER COLUMN id SET DEFAULT nextval('product_id_seq'::regclass);
+
+
+-- order table & sequence
+CREATE TABLE "order" (
+    id bigint NOT NULL CONSTRAINT order_pkey PRIMARY KEY,
+    customer bigint NOT NULL,
+    date timestamp(0) with time zone NOT NULL,
+    delivery_address text NOT NULL
+);
+
+CREATE SEQUENCE order_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE order_id_seq OWNED BY "order".id;
+
+ALTER TABLE ONLY "order" ALTER COLUMN id SET DEFAULT nextval('order_id_seq'::regclass);
+
+
+-- order_line table & sequence
+CREATE TABLE order_line (
+    id bigint NOT NULL CONSTRAINT order_line_pkey PRIMARY KEY,
+    "order" bigint NOT NULL,
+    product bigint NOT NULL
+);
+
+CREATE SEQUENCE order_line_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE order_line_id_seq OWNED BY order_line.id;
+
+ALTER TABLE ONLY order_line ALTER COLUMN id SET DEFAULT nextval('order_line_id_seq'::regclass);

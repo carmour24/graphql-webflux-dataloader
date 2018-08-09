@@ -44,6 +44,16 @@ public class Sequences {
     public static final Sequence<Long> DISCOUNT_RATE_ID_SEQ = new SequenceImpl<Long>("discount_rate_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
 
     /**
+     * The sequence <code>public.order_id_seq</code>
+     */
+    public static final Sequence<Long> ORDER_ID_SEQ = new SequenceImpl<Long>("order_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
+
+    /**
+     * The sequence <code>public.order_line_id_seq</code>
+     */
+    public static final Sequence<Long> ORDER_LINE_ID_SEQ = new SequenceImpl<Long>("order_line_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
+
+    /**
      * The sequence <code>public.payment_method_id_seq</code>
      */
     public static final Sequence<Long> PAYMENT_METHOD_ID_SEQ = new SequenceImpl<Long>("payment_method_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
@@ -52,6 +62,11 @@ public class Sequences {
      * The sequence <code>public.pricing_details_id_seq</code>
      */
     public static final Sequence<Long> PRICING_DETAILS_ID_SEQ = new SequenceImpl<Long>("pricing_details_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
+
+    /**
+     * The sequence <code>public.product_id_seq</code>
+     */
+    public static final Sequence<Long> PRODUCT_ID_SEQ = new SequenceImpl<Long>("product_id_seq", Public.PUBLIC, org.jooq.impl.SQLDataType.BIGINT.nullable(false));
 
     /**
      * The sequence <code>public.vat_rate_id_seq</code>

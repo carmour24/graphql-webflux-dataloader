@@ -8,7 +8,7 @@ import org.dataloader.DataLoaderRegistry
  * instance of [EntityDataLoader].
  */
 enum class DataLoaderType {
-    COMPANY, CUSTOMER, COMPANY_PARTNERSHIP, PRICING_DETAILS;
+    COMPANY, CUSTOMER, COMPANY_PARTNERSHIP, PRICING_DETAILS, PRODUCT, PRODUCT_ORDER_COUNT;
 
     /**
      * The key under which this data loader is stored in the [DataLoaderRegistry], stored in the

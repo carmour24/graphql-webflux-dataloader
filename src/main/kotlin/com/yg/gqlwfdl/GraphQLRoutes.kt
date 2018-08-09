@@ -8,6 +8,7 @@ import com.yg.gqlwfdl.resolvers.*
 import com.yg.gqlwfdl.services.CompanyPartnershipService
 import com.yg.gqlwfdl.services.CompanyService
 import com.yg.gqlwfdl.services.CustomerService
+import com.yg.gqlwfdl.services.ProductService
 import graphql.ExecutionInput
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
@@ -39,10 +40,11 @@ private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 class GraphQLRoutes(customerService: CustomerService,
                     companyService: CompanyService,
                     companyPartnershipService: CompanyPartnershipService,
+                    productService: ProductService,
                     private val dataLoaderFactory: DataLoaderFactory,
                     dbConfig: DBConfig) {
 
-    private val schema = buildSchema(customerService, companyService, companyPartnershipService, dbConfig)
+    private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService, dbConfig)
 
     /**
      * Sets up the routes (i.e. handles GET and POST to /graphql, and also serves up the graphiql HTML page).
@@ -126,15 +128,17 @@ private fun getVariables(req: ServerRequest): Map<String, Any>? {
 private fun buildSchema(customerService: CustomerService,
                         companyService: CompanyService,
                         companyPartnershipService: CompanyPartnershipService,
+                        productService: ProductService,
                         dbConfig: DBConfig): GraphQLSchema {
 
     return SchemaParser.newParser()
             .file("schema.graphqls")
             .resolvers(
-                    Query(customerService, companyService, companyPartnershipService),
+                    Query(customerService, companyService, companyPartnershipService, productService),
                     CustomerResolver(),
                     CompanyResolver(),
                     PricingDetailsResolver(),
+                    ProductResolver(),
                     Mutation(dbConfig))
             .options(SchemaParserOptions.newOptions()
                     .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))

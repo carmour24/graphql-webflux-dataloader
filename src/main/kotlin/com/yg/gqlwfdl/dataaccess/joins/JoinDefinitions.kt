@@ -52,3 +52,8 @@ val COMPANY_PRIMARY_CONTACT = JoinDefinition("primaryContact", COMPANY.PRIMARY_C
  * Join from the [COMPANY] table to the [PRICING_DETAILS] table.
  */
 val COMPANY_PRICING_DETAILS = JoinDefinition("pricingDetails", COMPANY.PRICING_DETAILS, PRICING_DETAILS.ID)
+
+/**
+ * Join from the [PRODUCT] table to the [COMPANY] table.
+ */
+val PRODUCT_COMPANY = JoinDefinition("company", PRODUCT.COMPANY, COMPANY.ID)

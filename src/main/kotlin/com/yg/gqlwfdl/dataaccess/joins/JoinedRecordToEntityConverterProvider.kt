@@ -45,6 +45,7 @@ class DefaultRecordToEntityConverterProvider : JoinedRecordToEntityConverterProv
                             PaymentMethodRecord::class.java
                     ) { pricingDetailsRecord, vatRateRecord, discountRateRecord, paymentMethodRecord ->
                         PricingDetailsRecords(pricingDetailsRecord, vatRateRecord, discountRateRecord, paymentMethodRecord).toEntity()
-                    }
+                    },
+                    SingleTypeJoinedRecordToEntityConverter(ProductRecord::class.java) { it.toEntity() }
             )
 }

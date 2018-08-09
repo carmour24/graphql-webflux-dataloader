@@ -34,9 +34,8 @@ interface CompanyService {
 @Service
 class DefaultCompanyService(private val companyRepository: CompanyRepository) : CompanyService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<Company>> =
-            companyRepository.findAll(env)
+    override fun findAll(env: DataFetchingEnvironment?) = companyRepository.findAll(env)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<Company>> =
+    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) =
             withLogging("getting companies with IDs $ids") { companyRepository.findByIds(ids, env) }
 }

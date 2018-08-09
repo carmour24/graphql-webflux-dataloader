@@ -1,10 +1,7 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLQueryResolver
-import com.yg.gqlwfdl.services.CompanyPartnershipService
-import com.yg.gqlwfdl.services.CompanyService
-import com.yg.gqlwfdl.services.Customer
-import com.yg.gqlwfdl.services.CustomerService
+import com.yg.gqlwfdl.services.*
 import com.yg.gqlwfdl.withLogging
 import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
@@ -16,7 +13,8 @@ import java.util.concurrent.CompletableFuture
  */
 class Query(private val customerService: CustomerService,
             private val companyService: CompanyService,
-            private val companyPartnershipService: CompanyPartnershipService)
+            private val companyPartnershipService: CompanyPartnershipService,
+            private val productService: ProductService)
     : GraphQLQueryResolver {
 
     /**
@@ -42,4 +40,25 @@ class Query(private val customerService: CustomerService,
      */
     fun companyPartnerships(env: DataFetchingEnvironment) =
             withLogging("getting all company partnerships") { companyPartnershipService.findAll(env) }
+
+    /**
+     * Gets all products in the system.
+     */
+    fun products(env: DataFetchingEnvironment) =
+            withLogging("getting all products") { productService.findAll(env) }
+
+    /**
+     * Gets the [count] top-selling products in the system.
+     */
+    fun topSellingProducts(count: Int, env: DataFetchingEnvironment): CompletableFuture<List<Product>> {
+        // Get the top-selling products - this will return a list of ProductOrderCount (which will have primed the
+        // 'env.requestContext.productOrderCountDataLoader' (i.e. stored the order count for each product). Convert
+        // the returned value back to simple Product objects. The GraphQL libraries will then the ProductResolver
+        // for the order count for each product, and it will in turn ask that data loader, which will be able to use
+        // the pre-cached values rather than querying again.
+        return withLogging("getting $count top-selling products") {
+            productService.findTopSelling(count, env)
+                    .thenApply { results -> results.map { it.entity } }
+        }
+    }
 }

@@ -8,8 +8,11 @@ import com.yg.gqlwfdl.dataaccess.db.tables.Company;
 import com.yg.gqlwfdl.dataaccess.db.tables.CompanyPartnership;
 import com.yg.gqlwfdl.dataaccess.db.tables.Customer;
 import com.yg.gqlwfdl.dataaccess.db.tables.DiscountRate;
+import com.yg.gqlwfdl.dataaccess.db.tables.Order;
+import com.yg.gqlwfdl.dataaccess.db.tables.OrderLine;
 import com.yg.gqlwfdl.dataaccess.db.tables.PaymentMethod;
 import com.yg.gqlwfdl.dataaccess.db.tables.PricingDetails;
+import com.yg.gqlwfdl.dataaccess.db.tables.Product;
 import com.yg.gqlwfdl.dataaccess.db.tables.VatRate;
 
 import javax.annotation.Generated;
@@ -49,6 +52,16 @@ public class Tables {
     public static final DiscountRate DISCOUNT_RATE = com.yg.gqlwfdl.dataaccess.db.tables.DiscountRate.DISCOUNT_RATE;
 
     /**
+     * The table <code>public.order</code>.
+     */
+    public static final Order ORDER = com.yg.gqlwfdl.dataaccess.db.tables.Order.ORDER;
+
+    /**
+     * The table <code>public.order_line</code>.
+     */
+    public static final OrderLine ORDER_LINE = com.yg.gqlwfdl.dataaccess.db.tables.OrderLine.ORDER_LINE;
+
+    /**
      * The table <code>public.payment_method</code>.
      */
     public static final PaymentMethod PAYMENT_METHOD = com.yg.gqlwfdl.dataaccess.db.tables.PaymentMethod.PAYMENT_METHOD;
@@ -57,6 +70,11 @@ public class Tables {
      * The table <code>public.pricing_details</code>.
      */
     public static final PricingDetails PRICING_DETAILS = com.yg.gqlwfdl.dataaccess.db.tables.PricingDetails.PRICING_DETAILS;
+
+    /**
+     * The table <code>public.product</code>.
+     */
+    public static final Product PRODUCT = com.yg.gqlwfdl.dataaccess.db.tables.Product.PRODUCT;
 
     /**
      * The table <code>public.vat_rate</code>.

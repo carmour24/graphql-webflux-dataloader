@@ -66,7 +66,7 @@ abstract class DefinitionBasedGraphQLFieldToJoinMapper(private val mappings: Lis
 class DefaultGraphQLFieldToJoinMapper : DefinitionBasedGraphQLFieldToJoinMapper(
         GraphQLFieldToJoinMapping.fromJoinDefinitions(CUSTOMER_COMPANY, CUSTOMER_OUT_OF_OFFICE_DELEGATE,
                 COMPANY_PRIMARY_CONTACT, PRICING_DETAILS_VAT_RATE, PRICING_DETAILS_DISCOUNT_RATE,
-                PRICING_DETAILS_PREFERRED_PAYMENT_METHOD)
+                PRICING_DETAILS_PREFERRED_PAYMENT_METHOD, PRODUCT_COMPANY)
                 .plus(listOf(
                         GraphQLFieldToJoinMapping("pricingDetails", CUSTOMER, listOf(
                                 NestedJoinDefinition(CUSTOMER_PRICING_DETAILS, listOf(

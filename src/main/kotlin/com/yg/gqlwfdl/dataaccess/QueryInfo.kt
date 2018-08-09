@@ -119,6 +119,13 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
     }
 
     /**
+     * Gets all the fields in all the tables in this object, in their aliased form.
+     */
+    fun getAllFields() = tablesByAlias.flatMap { pair ->
+        pair.value.fields().map { it.`as`(getAliasedFieldName(pair.key, it.name)) }
+    }
+
+    /**
      * Gets a list of the aliased [Field] instances from the passed in [table].
      *
      * @param table The table in this query, whose aliased fields are sought. If this table isn't in the query an
@@ -160,7 +167,7 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the string value in that field, or null if it has no such value (or no such field).
      */
-    fun <TRecord : Record> getNullableString(row: Row, table: Table<TRecord>, field: TableField<TRecord, String>): String? =
+    fun getNullableString(row: Row, table: Table<out Record>, field: Field<String>): String? =
             row.getString(getAliasedFieldName(table, field))
 
     /**
@@ -169,7 +176,7 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the string value in that field, or thrown an exception if the value was null (or no such field exists).
      */
-    fun <TRecord : Record> getString(row: Row, table: Table<TRecord>, field: TableField<TRecord, String>): String =
+    fun getString(row: Row, table: Table<out Record>, field: Field<String>): String =
             getNullableString(row, table, field)!!
 
     /**
@@ -178,7 +185,7 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the long value in that field, or null if it has no such value (or no such field).
      */
-    fun <TRecord : Record> getNullableLong(row: Row, table: Table<TRecord>, field: TableField<TRecord, Long>): Long? =
+    fun getNullableLong(row: Row, table: Table<out Record>, field: Field<Long>): Long? =
             row.getLong(getAliasedFieldName(table, field))
 
     /**
@@ -187,7 +194,7 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the long value in that field, or thrown an exception if the value was null (or no such field exists).
      */
-    fun <TRecord : Record> getLong(row: Row, table: Table<TRecord>, field: TableField<TRecord, Long>): Long =
+    fun getLong(row: Row, table: Table<out Record>, field: Field<Long>): Long =
             getNullableLong(row, table, field)!!
 
     /**
@@ -196,7 +203,7 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the double value in that field, or null if it has no such value (or no such field).
      */
-    fun <TRecord : Record> getNullableDouble(row: Row, table: Table<TRecord>, field: TableField<TRecord, Double>): Double? =
+    fun getNullableDouble(row: Row, table: Table<out Record>, field: Field<Double>): Double? =
             row.getDouble(getAliasedFieldName(table, field))
 
     /**
@@ -205,6 +212,24 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      *
      * Returns the double value in that field, or thrown an exception if the value was null (or no such field exists).
      */
-    fun <TRecord : Record> getDouble(row: Row, table: Table<TRecord>, field: TableField<TRecord, Double>): Double =
+    fun getDouble(row: Row, table: Table<out Record>, field: Field<Double>): Double =
             getNullableDouble(row, table, field)!!
+
+    /**
+     * Gets an integer value from the passed in [row], reading it from the passed it [field], which came from the passed
+     * in [table] (which must exist in this query, in order that the correct alias it was assigned can be found).
+     *
+     * Returns the integer value in that field, or null if it has no such value (or no such field).
+     */
+    fun getNullableInt(row: Row, table: Table<out Record>, field: Field<Int>): Int? =
+            row.getInteger(getAliasedFieldName(table, field))
+
+    /**
+     * Gets an integer value from the passed in [row], reading it from the passed it [field], which came from the passed
+     * in [table] (which must exist in this query, in order that the correct alias it was assigned can be found).
+     *
+     * Returns the integer value in that field, or thrown an exception if the value was null (or no such field exists).
+     */
+    fun getInt(row: Row, table: Table<out Record>, field: Field<Int>): Int =
+            getNullableInt(row, table, field)!!
 }

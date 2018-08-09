@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component
 class DataLoaderFactory(private val customerService: CustomerService,
                         private val companyService: CompanyService,
                         private val companyPartnershipService: CompanyPartnershipService,
-                        private val pricingDetailsService: PricingDetailsService) {
+                        private val pricingDetailsService: PricingDetailsService,
+                        private val productService: ProductService) {
 
     /**
      * Creates a new instance of every data loader (for all the items in [DataLoaderType]) and registers it with the
@@ -22,7 +23,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
      * @param requestContext The object providing access to the current request context.
      */
     fun createAllAndRegister(registry: DataLoaderRegistry, requestContext: RequestContext) {
-        DataLoaderType.values().forEach { dataLoaderType->
+        DataLoaderType.values().forEach { dataLoaderType ->
             // Use a "when" to ensure that every type is included: compiler will fail if not every entry in the enum
             // is handled.
             val dataLoader = when (dataLoaderType) {
@@ -37,6 +38,12 @@ class DataLoaderFactory(private val customerService: CustomerService,
 
                 DataLoaderType.PRICING_DETAILS ->
                     EntityDataLoader<Long, PricingDetails> { pricingDetailsService.findByIds(it) }
+
+                DataLoaderType.PRODUCT ->
+                    EntityDataLoader<Long, Product> { productService.findByIds(it) }
+
+                DataLoaderType.PRODUCT_ORDER_COUNT ->
+                    EntityDataLoader<Long, ProductOrderCount> { productService.findWithOrderCount(it) }
             }
 
             registry.register(dataLoaderType.registryKey, dataLoader)
@@ -70,3 +77,16 @@ val RequestContext.companyPartnershipDataLoader
  */
 val RequestContext.pricingDetailsDataLoader
     get() = this.dataLoader<Long, PricingDetails>(DataLoaderType.PRICING_DETAILS)
+
+/**
+ * Gets the data loader for caching/loading products ([Product] objects).
+ */
+@Suppress("unused")
+val RequestContext.productDataLoader
+    get() = this.dataLoader<Long, Product>(DataLoaderType.PRODUCT)
+
+/**
+ * Gets the data loader for caching/loading products ([Product] objects).
+ */
+val RequestContext.productOrderCountDataLoader
+    get() = this.dataLoader<Long, ProductOrderCount>(DataLoaderType.PRODUCT_ORDER_COUNT)

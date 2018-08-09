@@ -3,6 +3,7 @@ package com.yg.gqlwfdl.dataaccess
 import com.yg.gqlwfdl.*
 import com.yg.gqlwfdl.dataaccess.joins.*
 import com.yg.gqlwfdl.services.Entity
+import com.yg.gqlwfdl.services.EntityWrapper
 import graphql.schema.DataFetchingEnvironment
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
@@ -11,6 +12,7 @@ import org.jooq.conf.ParamType
 import reactor.core.publisher.Mono
 import reactor.core.publisher.MonoSink
 import java.util.concurrent.CompletableFuture
+import graphql.language.Field as GraphQLField
 
 /**
  * A repository providing access to an entity (aka domain model object) (of type [TEntity]), by querying one or more
@@ -41,7 +43,7 @@ import java.util.concurrent.CompletableFuture
  */
 abstract class DBEntityRepository<
         TEntity : Entity<TId>, TId : Any, TRecord : UpdatableRecord<TRecord>, TQueryInfo : QueryInfo<TRecord>>(
-        private val create: DSLContext,
+        protected val create: DSLContext,
         private val connectionPool: PgPool,
         private val recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
         private val graphQLFieldToJoinMapper: GraphQLFieldToJoinMapper,
@@ -58,8 +60,9 @@ abstract class DBEntityRepository<
      */
     override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<TEntity>> {
         return findAll(
-                env?.field?.let { graphQLFieldToJoinMapper.getJoinRequests(it, table) },
-                env?.requestContext?.dataLoaderPrimerEntityCreationListener)
+                env.getJoinRequests(),
+                env?.requestContext?.dataLoaderPrimerEntityCreationListener,
+                env?.field?.childFields)
     }
 
     /**
@@ -71,8 +74,9 @@ abstract class DBEntityRepository<
     override fun findByIds(ids: List<TId>, env: DataFetchingEnvironment?): CompletableFuture<List<TEntity>> {
         return findByIds(
                 ids,
-                env?.field?.let { graphQLFieldToJoinMapper.getJoinRequests(it, table) },
-                env?.requestContext?.dataLoaderPrimerEntityCreationListener)
+                env.getJoinRequests(),
+                env?.requestContext?.dataLoaderPrimerEntityCreationListener,
+                env?.field?.childFields)
     }
 
     /**
@@ -82,13 +86,16 @@ abstract class DBEntityRepository<
      * @param joinRequests The joins that should be added to the query to fetch related items, if any are required.
      * @param entityCreationListener The listener to inform whenever an [Entity] is created. This is done by calling it
      * [EntityCreationListener.onEntityCreated] function.
+     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
+     * of a GraphQL request.
      */
     protected open fun findAll(joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                               entityCreationListener: EntityCreationListener?)
+                               entityCreationListener: EntityCreationListener?,
+                               graphQLFields: List<GraphQLField>? = null)
             : CompletableFuture<List<TEntity>> {
 
         return withLogging("querying ${table.name} for all records") {
-            find(entityCreationListener, joinRequests)
+            find(entityCreationListener, joinRequests, graphQLFields)
         }
     }
 
@@ -100,14 +107,19 @@ abstract class DBEntityRepository<
      * @param joinRequests The joins that should be added to the query to fetch related items, if any are required.
      * @param entityCreationListener The listener to inform whenever an [Entity] is created. This is done by calling it
      * [EntityCreationListener.onEntityCreated] function.
+     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
+     * of a GraphQL request.
      */
     protected open fun findByIds(ids: List<TId>,
                                  joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                                 entityCreationListener: EntityCreationListener?)
+                                 entityCreationListener: EntityCreationListener?,
+                                 graphQLFields: List<GraphQLField>? = null)
             : CompletableFuture<List<TEntity>> {
 
         return withLogging("querying ${table.name} for records with IDs $ids") {
-            find(entityCreationListener, joinRequests) { listOf(it.primaryTable.field(idField).`in`(ids)) }
+            find(entityCreationListener, joinRequests, graphQLFields) {
+                listOf(it.primaryTable.field(idField).`in`(ids))
+            }
         }
     }
 
@@ -120,7 +132,7 @@ abstract class DBEntityRepository<
      */
     // Ignore unsafe cast - we know this is safe.
     @Suppress("UNCHECKED_CAST")
-    protected open fun getQueryInfo(table: Table<TRecord>) = QueryInfo(this.table) as TQueryInfo
+    protected open fun getQueryInfo(table: Table<TRecord> = this.table) = QueryInfo(table) as TQueryInfo
 
     /**
      * Gets the main record (i.e. a row from the main table this repository is working with), from the passed in [row]
@@ -143,20 +155,74 @@ abstract class DBEntityRepository<
     protected abstract fun getEntity(queryInfo: TQueryInfo, row: Row): TEntity
 
     /**
-     * Gets a list of all the [Field]s which exist in the receiver, which is a list of [JoinInstance]s.
+     * Runs a SELECT query on the passed in [queryInfo]'s [primaryTable][QueryInfo.primaryTable], optionally adding
+     * joins, soring, limits. Then uses the passed in [entityProvider] to convert the rows to entities of type [TResult].
      *
-     * @param queryInfo The information about the query which is to be executed. Used to get the instances of the
-     * aliased fields.
+     * @param TResult The type of entity being returned.
+     * @param entityProvider The function to call to convert a [Row] into an entity of type [TResult].
+     * @param queryInfo The object which will store information about the query being built up (e.g. the table/field
+     * aliases). If omitted, created by default by calling [getQueryInfo].
+     * @param entityCreationListener The object to inform as the entities are created. Defaults to null, in which case
+     * it's ignored.
+     * @param defaultJoins Any joins to add by default. If omitted, populated by calling [getDefaultJoins].
+     * @param joinRequests The joins being requested, e.g. by a GraphQL request.
+     * @param conditionProvider The object that will supply any conditions that should be added to the query. If null,
+     * no conditions are applied, and every record is returned.
+     * @param customJoiner An optional function that can updated the [SelectJoinStep] being built up by adding more joins
+     * to it. Used in cases when completely custom join behaviour is required, e.g. joining to nested (derived) tables
+     * in a way that can't be handled by the standard [JoinRequest] object model.
+     * @param orderBy An optional list of fields to sort by.
+     * @param limit An optional limit to the number of rows to return.
+     * @return A [CompletableFuture] which will be completed when the query returns its results, and which will expose
+     * the results as a [List] of [TResult] objects.
      */
-    private fun List<JoinInstance<out Any, out Record, out Record>>.getAllAliasedFields(queryInfo: TQueryInfo)
-            : List<Field<out Any>> {
+    protected fun <TResult : Entity<out Any>> find(
+            entityProvider: (TQueryInfo, Row) -> TResult,
+            queryInfo: TQueryInfo = getQueryInfo(),
+            entityCreationListener: EntityCreationListener? = null,
+            defaultJoins: List<JoinInstance<out Any, TRecord, out Record>>? = getDefaultJoins(queryInfo),
+            joinRequests: List<JoinRequest<out Any, TRecord, out Record>>? = null,
+            conditionProvider: ((TQueryInfo) -> List<Condition>)? = null,
+            customJoiner: ((TQueryInfo, SelectJoinStep<Record>) -> Unit)? = null,
+            orderBy: List<OrderField<out Any>>? = null,
+            limit: Int? = null)
+            : CompletableFuture<List<TResult>> {
 
-        // For each join in this list ...
-        return this.flatMap {
-            // ... get all the fields from the foreign side of the join and alias them ...
-            queryInfo.getAliasedFields(it.foreignFieldInstance.table)
-                    // ... then add all the joins from each of the subsequent joins (if any).
-                    .plus(it.subsequentJoins.getAllAliasedFields(queryInfo))
+        // Get all the join instances required.
+        val joinInstances = (defaultJoins ?: listOf()).plus(
+                joinRequests?.map { it.createInstance(queryInfo.primaryTable, queryInfo) } ?: listOf())
+
+        // Build up the "SELECT... FROM..." part of the query.
+        val select = create
+                .select(queryInfo.getAllFields())
+                .from(queryInfo.primaryTable)
+
+        // Add the joins to the query.
+        customJoiner?.invoke(queryInfo, select)
+        joinInstances.forEach { it.join(select) }
+
+        val unorderedQuery = select.withConditions(conditionProvider?.invoke(queryInfo))
+        val orderedQuery = orderBy?.letIfAny { unorderedQuery.orderBy(it) } ?: unorderedQuery
+        val finalQuery = limit?.let { orderedQuery.limit(it) } ?: orderedQuery
+
+        return finalQuery.fetchRowsAsync().thenApply { rows ->
+            // Map the rows to the entities and return them.
+            rows.map { row ->
+                val entity = entityProvider(queryInfo, row)
+                if (entityCreationListener != null) {
+                    // We need to inform the listener of all the entities, so inform it of the main entity, then
+                    // get all the joined entities and inform it of them too.
+                    entityCreationListener.onEntityCreated(entity)
+
+                    if (entity is EntityWrapper<*, *>)
+                        entityCreationListener.onEntityCreated(entity.entity)
+
+                    getJoinedEntities(row, queryInfo, joinInstances).forEach {
+                        entityCreationListener.onEntityCreated(it)
+                    }
+                }
+                entity
+            }
         }
     }
 
@@ -165,51 +231,23 @@ abstract class DBEntityRepository<
      *
      * @param entityCreationListener The listener to inform whenever an [Entity] is found. Ignored if null.
      * @param joinRequests Any joins that should be added to the query. Ignored if null.
+     * @param graphQLFields A list of the fields requested on the entities being returned, when called from the context
+     * of a GraphQL request.
      * @param conditionProvider The object that will supply any conditions that should be added to the query. If null,
      * no conditions are applied, and every record is returned.
      */
-    private fun find(entityCreationListener: EntityCreationListener?,
-                     joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
-                     conditionProvider: ((TQueryInfo) -> List<Condition>)? = null)
+    protected open fun find(entityCreationListener: EntityCreationListener?,
+                            joinRequests: List<JoinRequest<out Any, TRecord, out Record>>?,
+                            graphQLFields: List<GraphQLField>? = null,
+                            conditionProvider: ((TQueryInfo) -> List<Condition>)? = null)
             : CompletableFuture<List<TEntity>> {
 
-        // Get the TQueryInfo object that will build up information about all the tables/fields/aliases in the query
-        // so that data can be correctly retrieved from the right fields.
-        val queryInfo = getQueryInfo(table)
-
-        // Get all the join instances required.
-        val joinInstances = getDefaultJoins(queryInfo).plus(
-                joinRequests?.map { it.createInstance(queryInfo.primaryTable, queryInfo) } ?: listOf())
-
-        // Build up the "SELECT... FROM..." part of the query.
-        val select = create
-                .select(queryInfo.getAliasedFields(queryInfo.primaryTable).plus(joinInstances.getAllAliasedFields(queryInfo)))
-                .from(queryInfo.primaryTable)
-
-        // Add the joins to the query.
-        joinInstances.forEach { it.join(select) }
-
-        return select
-                // Add the WHERE part of the clause.
-                .withConditions(conditionProvider?.invoke(queryInfo))
-                // Fetch the rows asynchronously.
-                .fetchRowsAsync()
-                .thenApply { rows ->
-                    // Map the rows to the entities and return them.
-                    rows.map { row ->
-                        val entity = getEntity(queryInfo, row)
-                        if (entityCreationListener != null) {
-                            // We need to inform the listener of all the entities, so inform it of the main entity, then
-                            // get all the joined entities and inform it of them too.
-                            entityCreationListener.onEntityCreated(entity)
-                            getJoinedEntities(row, queryInfo, joinInstances).forEach {
-                                entityCreationListener.onEntityCreated(it)
-                            }
-                        }
-                        entity
-                    }
-                }
-
+        return find(
+                entityProvider = this::getEntity,
+                entityCreationListener = entityCreationListener,
+                joinRequests = joinRequests,
+                conditionProvider = conditionProvider
+        )
     }
 
     /**
@@ -280,13 +318,22 @@ abstract class DBEntityRepository<
                 val sql = getSQL(ParamType.INLINED)
                 logMessage("Executing query: $sql")
                 connectionPool.query(sql) {
-                    if (it.succeeded()) sink.success(it.result().toList()) else throw it.cause()
+                    if (it.succeeded()) sink.success(it.result().toList())
+                    else sink.error(Exception("Error running query", it.cause()))
                 }
             } catch (e: Exception) {
                 sink.error(Exception("Error running query", e))
             }
         }.toFuture()
     }
+
+    /**
+     * Gets the join requests from `this` [DataFetchingEnvironment], using this [DBEntityRepository] object's
+     * [graphQLFieldToJoinMapper].
+     */
+    protected fun DataFetchingEnvironment?.getJoinRequests() =
+            this?.field?.let { graphQLFieldToJoinMapper.getJoinRequests(it, table) }
+
 
     // Below is the code for working with Fluxes rather than CompletableFuture<List<T>>...
 

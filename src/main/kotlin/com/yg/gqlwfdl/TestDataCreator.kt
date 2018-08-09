@@ -5,17 +5,41 @@ import com.yg.gqlwfdl.services.*
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.Statement
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
+
+private val allTables = listOf("customer", "company", "company_partnership", "vat_rate", "discount_rate",
+        "payment_method", "pricing_details", "product", "order", "order_line")
+
+private val allSequences = allTables.map { "${it}_id_seq" }
+
+private const val COMPANY_COUNT = 20
+private const val CUSTOMERS_PER_COMPANY = 10
+private const val PRICING_DETAILS_COUNT = 4
+private const val PRODUCT_COUNT = 1000
+private val ORDERS_PER_CUSTOMERS = listOf(0, 1, 2, 3, 5, 10)
+private const val ADDRESSES_PER_CUSTOMER = 3
+private val LINES_PER_ORDER = listOf(1, 2, 3, 4, 5, 10)
 
 /**
  * Used to create test data.
  */
 class TestDataCreator(private val dbConfig: DBConfig) {
-    fun execute() {
+    fun execute(): Map<String, Int> {
+
         DriverManager.getConnection(dbConfig.url, dbConfig.username, dbConfig.password).use { connection ->
-            connection.createStatement().use {
-                deleteExistingData(it)
-                createTestData(it)
+            connection.createStatement().use { statement ->
+                deleteExistingData(statement)
+                resetSequences(statement)
+                createTestData(statement)
+
+                fun getRecordCount(tableName: String) = statement.executeQuery("""select count(*) from "$tableName"""").use {
+                    it.next()
+                    it.getInt(1)
+                }
+
+                return allTables.map { Pair(it, getRecordCount(it)) }.toMap()
             }
         }
     }
@@ -30,16 +54,73 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         setOutOfOfficeDelegates(statement, customers)
         setPrimaryContacts(statement, companies, customers)
         createCompanyPartnerships(statement, companies)
+        val products = createProducts(statement, companies)
+        val orders = createOrders(statement, customers)
+        createOrderLines(statement, orders, products)
+    }
+
+    private fun createOrderLines(statement: Statement, orders: List<Order>, products: List<Product>) {
+        orders.forEach { order ->
+            products.randomItems(LINES_PER_ORDER.randomItem()).forEach { product ->
+                statement.execute("""
+                        |insert into order_line ("order", product)
+                        |values (${order.id}, ${product.id});
+                    """.trimMargin())
+            }
+        }
+    }
+
+    private fun createOrders(statement: Statement, customers: List<Customer>): List<Order> {
+        val secondsInAYear = 365 * 24 * 60 * 60
+
+        customers.forEach { customer ->
+            val orderCount = ORDERS_PER_CUSTOMERS.randomItem()
+            if (orderCount > 0) {
+                // Generate addresses for the customer, and choose a random one for each order.
+                val addresses = (1..ADDRESSES_PER_CUSTOMER).map {
+                    "Address $it for ${customer.firstName} ${customer.lastName}"
+                }
+
+                // Create the orders for this customer.
+                for (i in 1..orderCount) {
+                    val date = OffsetDateTime.now().minusSeconds((0..secondsInAYear).randomItem().toLong())
+                    val dateString = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(date)
+                    statement.execute("""
+                        |insert into "order" (customer, date, delivery_address)
+                        |values (${customer.id}, '$dateString', '${addresses.randomItem()}');
+                    """.trimMargin())
+                }
+            }
+        }
+
+        return listFromQuery(statement, """select id, customer, date, delivery_address from "order" order by id""") {
+            Order(it.getLong("id"), it.getLong("customer"), it.getObject("date", OffsetDateTime::class.java),
+                    it.getString("delivery_address"))
+        }
+    }
+
+    private fun createProducts(statement: Statement, companies: List<Company>): List<Product> {
+        // Products with a random price of between 0.99 and 99.99
+        val priceRange = (99..9999)
+        for (i in 1..PRODUCT_COUNT) {
+            val price = priceRange.randomItem().toDouble() / 100
+            statement.addBatch("""
+                |insert into product (description, price, company)
+                |values ('Product $i', $price, ${companies.randomItem().id});
+            """.trimMargin())
+        }
+        statement.executeBatch()
+
+        return listFromQuery(statement, "select id, description, price, company from product order by id") {
+            Product(it.getLong("id"), it.getString("description"), it.getDouble("price"), it.getLong("company"))
+        }
     }
 
     private fun createVatRates(statement: Statement): List<VatRate> {
-        fun createVatRate(description: String, value: Double) {
-            statement.execute("insert into vat_rate (description, value) values('$description', $value);")
+        mapOf(Pair("Standard", 20.0), Pair("Reduced", 5.0), Pair("Zero", 0.0)).forEach {
+            statement.addBatch("insert into vat_rate (description, value) values ('${it.key}', ${it.value});")
         }
-
-        createVatRate("Standard", 20.0)
-        createVatRate("Reduced", 5.0)
-        createVatRate("Zero", 0.0)
+        statement.executeBatch()
 
         return listFromQuery(statement, "select id, description, value from vat_rate order by id") {
             VatRate(it.getLong("id"), it.getString("description"), it.getDouble("value"))
@@ -47,13 +128,10 @@ class TestDataCreator(private val dbConfig: DBConfig) {
     }
 
     private fun createDiscountRates(statement: Statement): List<DiscountRate> {
-        fun createDiscountRate(description: String, value: Double) {
-            statement.execute("insert into discount_rate (description, value) values('$description', $value);")
+        mapOf(Pair("None", 0.0), Pair("Cheap", 5.0), Pair("Cheapest", 10.0)).forEach {
+            statement.addBatch("insert into discount_rate (description, value) values ('${it.key}', ${it.value});")
         }
-
-        createDiscountRate("None", 0.0)
-        createDiscountRate("Cheap", 5.0)
-        createDiscountRate("Cheapest", 10.0)
+        statement.executeBatch()
 
         return listFromQuery(statement, "select id, description, value from discount_rate order by id") {
             DiscountRate(it.getLong("id"), it.getString("description"), it.getDouble("value"))
@@ -61,13 +139,10 @@ class TestDataCreator(private val dbConfig: DBConfig) {
     }
 
     private fun createPaymentMethods(statement: Statement): List<PaymentMethod> {
-        fun createPaymentMethods(description: String, charge: Double) {
-            statement.execute("insert into payment_method (description, charge) values('$description', $charge);")
+        mapOf(Pair("Cash", 0.0), Pair("Cheque", 2.5), Pair("Card", 1.5)).forEach {
+            statement.addBatch("insert into payment_method (description, charge) values ('${it.key}', ${it.value});")
         }
-
-        createPaymentMethods("Cash", 0.0)
-        createPaymentMethods("Cheque", 2.5)
-        createPaymentMethods("Card", 1.5)
+        statement.executeBatch()
 
         return listFromQuery(statement, "select id, description, charge from payment_method order by id") {
             PaymentMethod(it.getLong("id"), it.getString("description"), it.getDouble("charge"))
@@ -78,9 +153,9 @@ class TestDataCreator(private val dbConfig: DBConfig) {
                                      paymentMethods: List<PaymentMethod>)
             : List<PricingDetails> {
 
-        (1..4).forEach {
-            statement.execute("""
-                | insert into pricing_details (description, vat_rate, discount_rate, preferred_payment_method) values(
+        (1..PRICING_DETAILS_COUNT).forEach {
+            statement.addBatch("""
+                | insert into pricing_details (description, vat_rate, discount_rate, preferred_payment_method) values (
                 |   'PricingDetails-$it',
                 |   ${vatRates.randomItem().id},
                 |   ${discountRates.randomItem().id},
@@ -88,6 +163,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
                 | );
             """.trimMargin())
         }
+        statement.executeBatch()
 
         return listFromQuery(statement,
                 "select id, description, vat_rate, discount_rate, preferred_payment_method from pricing_details order by id") {
@@ -100,16 +176,14 @@ class TestDataCreator(private val dbConfig: DBConfig) {
 
     private fun createCompanyPartnerships(statement: Statement, companies: List<Company>) {
         // Create partnerships between each company and the next two companies
-
-        fun createPartnership(companyA: Company, companyB: Company) {
-            statement.execute(
-                    "insert into company_partnership (company_a, company_b) values (${companyA.id}, ${companyB.id});")
-        }
+        fun getCreatePartnershipSql(companyA: Company, companyB: Company) =
+                "insert into company_partnership (company_a, company_b) values (${companyA.id}, ${companyB.id});"
 
         for (i in 0..companies.size - 3) {
-            createPartnership(companies[i], companies[i + 1])
-            createPartnership(companies[i], companies[i + 2])
+            statement.addBatch(getCreatePartnershipSql(companies[i], companies[i + 1]))
+            statement.addBatch(getCreatePartnershipSql(companies[i], companies[i + 2]))
         }
+        statement.executeBatch()
     }
 
     private fun setPrimaryContacts(statement: Statement, companies: List<Company>, customers: List<Customer>) {
@@ -123,7 +197,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
             customersByCompany[this.id]?.let {
                 // Choose a random customer from this list and use them as the primary contact.
                 this.primaryContact = it.randomItem().id
-                statement.execute(
+                statement.addBatch(
                         "update company set primary_contact = ${this.primaryContact} where id = ${this.id};")
             }
         }
@@ -133,6 +207,8 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         // Make sure that there is at least one company with a primary contact
         if (companies.all { it.primaryContact == null })
             companies.randomItem().setPrimaryContact()
+
+        statement.executeBatch()
     }
 
     private fun setOutOfOfficeDelegates(statement: Statement, customers: List<Customer>) {
@@ -146,7 +222,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
             customersByCompany[this.companyId]?.minusElement(this)?.let {
                 // Choose a random customer from this list and use them as the delegate.
                 this.outOfOfficeDelegate = it.randomItem().id
-                statement.execute(
+                statement.addBatch(
                         "update customer set out_of_office_delegate = ${this.outOfOfficeDelegate} where id = ${this.id};")
             }
         }
@@ -156,22 +232,22 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         // Make sure that there is at least one customer with an out-of-office delegate
         if (customers.all { it.outOfOfficeDelegate == null })
             customers.randomItem().setOutOfOfficeDelegate()
+
+        statement.executeBatch()
     }
 
     private fun createCustomers(statement: Statement, companies: List<Company>, pricingDetails: List<PricingDetails>)
             : List<Customer> {
 
-        // Customers: 10 customers for each company.
         companies.forEach { company: Company ->
-            (1..10).forEach { userNumber: Int ->
-                statement.connection.createStatement().use {
-                    it.execute("""
-                        | insert into customer (first_name, last_name, company_id, pricing_details) values(
-                        | 'User-$userNumber', 'From-${company.name}', ${company.id}, ${pricingDetails.randomItem().id});
-                    """.trimMargin())
-                }
+            (1..CUSTOMERS_PER_COMPANY).forEach { userNumber: Int ->
+                statement.addBatch("""
+                    | insert into customer (first_name, last_name, company_id, pricing_details) values (
+                    | 'User-$userNumber', 'From-${company.name}', ${company.id}, ${pricingDetails.randomItem().id});
+                """.trimMargin())
             }
         }
+        statement.executeBatch()
 
         return listFromQuery(statement,
                 "select id, first_name, last_name, company_id, pricing_details from customer order by id") {
@@ -181,13 +257,14 @@ class TestDataCreator(private val dbConfig: DBConfig) {
     }
 
     private fun createCompanies(statement: Statement, pricingDetails: List<PricingDetails>): List<Company> {
-        // Companies: 1 to 100
-        (1..100).forEach {
-            statement.execute("""
+        (1..COMPANY_COUNT).forEach {
+            statement.addBatch("""
                 | insert into company (name, address, pricing_details)
-                | values('Company-$it', '$it Street, $it Town', ${pricingDetails.randomItem().id});
+                | values ('Company-$it', '$it Street, $it Town', ${pricingDetails.randomItem().id});
             """.trimMargin())
         }
+        statement.executeBatch()
+
         return listFromQuery(statement, "select id, name, address, pricing_details from company order by id") {
             Company(it.getLong("id"), it.getString("name"), it.getString("address"), it.getLong("pricing_details"))
         }
@@ -203,9 +280,17 @@ class TestDataCreator(private val dbConfig: DBConfig) {
     }
 
     private fun deleteExistingData(statement: Statement) {
-        listOf("customer", "company", "company_partnership", "vat_rate", "discount_rate", "payment_method", "pricing_details")
-                .forEach { statement.execute("delete from $it;") }
+        allTables.forEach { statement.execute("""delete from "$it";""") }
+    }
+
+    private fun resetSequences(statement: Statement) {
+        allSequences.forEach { statement.execute("""alter sequence "$it" restart;""") }
     }
 }
 
-private fun <T> List<T>.randomItem(random: Random = Random()): T = this[random.nextInt(this.size)]
+private fun <T> List<T>.randomItem(): T = this[Random().nextInt(this.size)]
+
+private fun ClosedRange<Int>.randomItem() = Random().nextInt((endInclusive + 1) - start) + start
+
+private fun <T> List<T>.randomItems(count: Int): List<T> =
+        this.toMutableList().let { (1..count).map { _ -> it.removeAt((0 until it.size).randomItem()) } }

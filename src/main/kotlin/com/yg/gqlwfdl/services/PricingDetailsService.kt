@@ -34,9 +34,7 @@ interface PricingDetailsService {
 class DefaultPricingDetailsService(private val pricingDetailsRepository: PricingDetailsRepository)
     : PricingDetailsService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<PricingDetails>> =
-            pricingDetailsRepository.findAll(env)
+    override fun findAll(env: DataFetchingEnvironment?) = pricingDetailsRepository.findAll(env)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<PricingDetails>> =
-            pricingDetailsRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?) = pricingDetailsRepository.findByIds(ids, env)
 }
