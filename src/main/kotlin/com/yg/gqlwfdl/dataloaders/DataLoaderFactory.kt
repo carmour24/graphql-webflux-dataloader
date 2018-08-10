@@ -1,9 +1,12 @@
 package com.yg.gqlwfdl.dataloaders
 
 import com.yg.gqlwfdl.RequestContext
+import com.yg.gqlwfdl.dataaccess.EntityCreationListener
+import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.services.*
 import org.dataloader.DataLoaderRegistry
 import org.springframework.stereotype.Component
+import java.util.concurrent.CompletableFuture
 
 /**
  * Class responsible for creating all the [EntityDataLoader]s in the system.
@@ -27,26 +30,51 @@ class DataLoaderFactory(private val customerService: CustomerService,
             // Use a "when" to ensure that every type is included: compiler will fail if not every entry in the enum
             // is handled.
             val dataLoader = when (dataLoaderType) {
-                DataLoaderType.COMPANY ->
-                    EntityDataLoader<Long, Company> { companyService.findByIds(it) }
+                DataLoaderType.COMPANY -> createDataLoader<Long, Company>(requestContext) { ids, requestInfo ->
+                    companyService.findByIds(ids, requestInfo)
+                }
 
-                DataLoaderType.CUSTOMER ->
-                    EntityDataLoader<Long, Customer> { customerService.findByIds(it) }
+                DataLoaderType.CUSTOMER -> createDataLoader<Long, Customer>(requestContext) { ids, requestInfo ->
+                    customerService.findByIds(ids, requestInfo)
+                }
 
-                DataLoaderType.COMPANY_PARTNERSHIP ->
-                    EntityDataLoader<Long, CompanyPartnership> { companyPartnershipService.findByIds(it) }
+                DataLoaderType.COMPANY_PARTNERSHIP -> createDataLoader<Long, CompanyPartnership>(requestContext) { ids, requestInfo ->
+                    companyPartnershipService.findByIds(ids, requestInfo)
+                }
 
-                DataLoaderType.PRICING_DETAILS ->
-                    EntityDataLoader<Long, PricingDetails> { pricingDetailsService.findByIds(it) }
+                DataLoaderType.PRICING_DETAILS -> createDataLoader<Long, PricingDetails>(requestContext) { ids, requestInfo ->
+                    pricingDetailsService.findByIds(ids, requestInfo)
+                }
 
-                DataLoaderType.PRODUCT ->
-                    EntityDataLoader<Long, Product> { productService.findByIds(it) }
+                DataLoaderType.PRODUCT -> createDataLoader<Long, Product>(requestContext) { ids, requestInfo ->
+                    productService.findByIds(ids, requestInfo)
+                }
 
-                DataLoaderType.PRODUCT_ORDER_COUNT ->
-                    EntityDataLoader<Long, ProductOrderCount> { productService.findWithOrderCount(it) }
+                DataLoaderType.PRODUCT_ORDER_COUNT -> createDataLoader<Long, ProductOrderCount>(requestContext) { ids, requestInfo ->
+                    productService.findWithOrderCount(ids, requestInfo)
+                }
             }
 
             registry.register(dataLoaderType.registryKey, dataLoader)
+        }
+    }
+
+    /**
+     * Creates an [EntityDataLoader] which will use the passed in [batchLoadFunction] to get all the entities in a single
+     * operation, when required. Uses the passed in [requestContext] to get at an [EntityCreationListener] so that this
+     * can be sed to create an [EntityRequestInfo] to then pass into service methods for fetching entities. Also creates
+     * a [ClientFieldStore] to be used by the data loader to know what child fields are requested for the entities, so
+     * that the correct database joins can be added to minimise the number of hits to the database.
+     */
+    private fun <TId, TEntity : Entity<TId>> createDataLoader(
+            requestContext: RequestContext,
+            batchLoadFunction: (List<TId>, EntityRequestInfo) -> CompletableFuture<List<TEntity>>)
+            : EntityDataLoader<TId, TEntity> {
+
+        val childFieldStore = ClientFieldStore()
+        return EntityDataLoader(childFieldStore) {
+            batchLoadFunction(it,
+                    EntityRequestInfo(childFieldStore.fields, requestContext.dataLoaderPrimerEntityCreationListener))
         }
     }
 }

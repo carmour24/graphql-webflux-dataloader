@@ -1,7 +1,7 @@
 package com.yg.gqlwfdl.dataloaders
 
+import com.yg.gqlwfdl.ClientField
 import com.yg.gqlwfdl.services.Entity
-import graphql.language.Field
 import org.dataloader.BatchLoader
 import org.dataloader.DataLoader
 import java.util.concurrent.CompletionStage
@@ -15,24 +15,17 @@ import java.util.concurrent.CompletionStage
  * @param TId The type of the unique ID of each object being loaded by this data loader. This value is used as the key
  * which identifies each item in the data loader's cache.
  * @param TEntity The type of the object which this data loader retrieves and caches.
+ * @param childFieldStore A store of [ClientField]s which are the requested fields on the entities which this data
+ * loader will supply. See [ClientFieldStore] for an explanation of "merging" of child fields.
  * @param loader The function which is used to retrieve a list of objects of type [TEntity] based on a list of their
  * IDs, of type [TId].
  */
-class EntityDataLoader<TId, TEntity : Entity<TId>>(loader: (List<TId>) -> CompletionStage<List<TEntity>>)
+class EntityDataLoader<TId, TEntity : Entity<TId>>(val childFieldStore: ClientFieldStore,
+                                                   loader: (List<TId>) -> CompletionStage<List<TEntity>>)
     : DataLoader<TId, TEntity>(
         BatchLoader { keys ->
             loader(keys).thenApply { entities -> entities.syncWithKeys(keys) { it.id } }
         }) {
-
-    /**
-     * The GraphQL fields which were in the current requested, which led to this data loader being used. For example,
-     * say the request is for a set of users, and each user has a "company" property, which is fetched using this
-     * data loader: in this case, this list would include that "company" field. The child fields of that company can
-     * then be interrogated to see what company-related information is requested, in case more joins need to be
-     * included to fetch this data.
-     */
-    // TODO: revisit this field - it's not currently being used for anything. Do we still need it?
-    val sourceGraphQLFields = mutableListOf<Field>()
 
     /**
      * Primes that passed in entity, i.e. caches it and makes it available for subsequent usage in the current request.
