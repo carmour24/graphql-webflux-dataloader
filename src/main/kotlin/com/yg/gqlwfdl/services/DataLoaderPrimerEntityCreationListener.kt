@@ -19,13 +19,13 @@ class DataLoaderPrimerEntityCreationListener(private val requestContext: Request
         // Use a "when" to ensure that whenever a new data loader type is added we won't forget to add it here:
         // the compiler will fail if not every entry in the enum is handled.
         when (type) {
-            DataLoaderType.COMPANY -> Pair(Company::class.java, EntityCacher(requestContext.companyDataLoader))
-            DataLoaderType.CUSTOMER -> Pair(Customer::class.java, EntityCacher(requestContext.customerDataLoader))
-            DataLoaderType.COMPANY_PARTNERSHIP -> Pair(CompanyPartnership::class.java, EntityCacher(requestContext.companyPartnershipDataLoader))
-            DataLoaderType.PRICING_DETAILS -> Pair(PricingDetails::class.java, EntityCacher(requestContext.pricingDetailsDataLoader))
-            DataLoaderType.PRODUCT -> Pair(Product::class.java, EntityCacher(requestContext.productDataLoader))
+            DataLoaderType.COMPANY -> Pair(Company::class.java, EntityCacher { requestContext.companyDataLoader })
+            DataLoaderType.CUSTOMER -> Pair(Customer::class.java, EntityCacher { requestContext.customerDataLoader })
+            DataLoaderType.COMPANY_PARTNERSHIP -> Pair(CompanyPartnership::class.java, EntityCacher { requestContext.companyPartnershipDataLoader })
+            DataLoaderType.PRICING_DETAILS -> Pair(PricingDetails::class.java, EntityCacher { requestContext.pricingDetailsDataLoader })
+            DataLoaderType.PRODUCT -> Pair(Product::class.java, EntityCacher { requestContext.productDataLoader })
             DataLoaderType.PRODUCT_ORDER_COUNT -> null
-            DataLoaderType.ORDER -> Pair(Order::class.java, EntityCacher(requestContext.orderDataLoader))
+            DataLoaderType.ORDER -> Pair(Order::class.java, EntityCacher { requestContext.orderDataLoader })
             DataLoaderType.CUSTOMER_ORDER -> null
         }
     }.toMap()
@@ -36,17 +36,20 @@ class DataLoaderPrimerEntityCreationListener(private val requestContext: Request
 }
 
 /**
- * An object responsible for caching [TEntity] objects into the passed in [dataLoader].
+ * An object responsible for caching [TEntity] objects into a data loader supplied by the passed in [dataLoaderSupplier].
+ * A supplier (a function) is used rather than taking in the actual data loader instance, becase at the point at which
+ * this object is created, the data loaders might not exist yet.
  */
-private class EntityCacher<TId, TEntity : Entity<out TId>>(private val dataLoader: SimpleDataLoader<TId, TEntity>) {
+private class EntityCacher<TId, TEntity : Entity<out TId>>(
+        private val dataLoaderSupplier: () -> SimpleDataLoader<TId, TEntity>) {
 
     /**
-     * Caches the passed in entity into this object's [dataLoader].
+     * Caches the passed in entity into the data loader supplied by this object's [dataLoaderSupplier].
      */
     fun cache(entity: Entity<*>) {
         // Can safely cast here as this private function is only called from one single place, where type checking has
         // implicitly already been done.
         @Suppress("UNCHECKED_CAST")
-        with(entity as TEntity) { dataLoader.prime(this.id, this) }
+        with(entity as TEntity) { dataLoaderSupplier().prime(this.id, this) }
     }
 }
