@@ -31,5 +31,4 @@ class CompanyResolver : DataLoadingResolver(), GraphQLResolver<Company> {
      */
     fun pricingDetails(company: Company, env: DataFetchingEnvironment): CompletableFuture<PricingDetails> =
             prepareDataLoader(env) { env.requestContext.pricingDetailsDataLoader }.load(company.pricingDetailsId)
-
 }

@@ -1,9 +1,10 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
+import com.yg.gqlwfdl.dataaccess.CompanyPartnershipRecords
 import com.yg.gqlwfdl.dataaccess.PricingDetailsRecords
+import com.yg.gqlwfdl.dataaccess.db.tables.records.*
 import com.yg.gqlwfdl.dataaccess.toEntity
 import com.yg.gqlwfdl.services.Entity
-import com.yg.gqlwfdl.yg.db.public_.tables.records.*
 import org.springframework.stereotype.Component
 
 /**
@@ -13,7 +14,7 @@ interface JoinedRecordToEntityConverterProvider {
     /**
      * Gets all the [JoinedRecordToEntityConverter]s in the system.
      */
-    val recordToConverters: List<JoinedRecordToEntityConverter<out Entity<out Any>>>
+    val converters: List<JoinedRecordToEntityConverter<out Entity<out Any>>>
 }
 
 /**
@@ -23,10 +24,18 @@ interface JoinedRecordToEntityConverterProvider {
 @Component
 class DefaultRecordToEntityConverterProvider : JoinedRecordToEntityConverterProvider {
 
-    override val recordToConverters: List<JoinedRecordToEntityConverter<out Entity<out Any>>> =
+    override val converters: List<JoinedRecordToEntityConverter<out Entity<out Any>>> =
             listOf(
                     SingleTypeJoinedRecordToEntityConverter(CustomerRecord::class.java) { it.toEntity() },
                     SingleTypeJoinedRecordToEntityConverter(CompanyRecord::class.java) { it.toEntity() },
+                    MultiTypeJoinedRecordToEntityConverter2(CompanyPartnershipRecord::class.java,
+                            COMPANY_PARTNERSHIP_COMPANY_A.name,
+                            COMPANY_PARTNERSHIP_COMPANY_B.name,
+                            CompanyRecord::class.java,
+                            CompanyRecord::class.java
+                    ) { companyPartnershipRecord, companyARecord, companyBRecord ->
+                        CompanyPartnershipRecords(companyPartnershipRecord, companyARecord, companyBRecord).toEntity()
+                    },
                     MultiTypeJoinedRecordToEntityConverter3(PricingDetailsRecord::class.java,
                             PRICING_DETAILS_VAT_RATE.name,
                             PRICING_DETAILS_DISCOUNT_RATE.name,
@@ -36,6 +45,7 @@ class DefaultRecordToEntityConverterProvider : JoinedRecordToEntityConverterProv
                             PaymentMethodRecord::class.java
                     ) { pricingDetailsRecord, vatRateRecord, discountRateRecord, paymentMethodRecord ->
                         PricingDetailsRecords(pricingDetailsRecord, vatRateRecord, discountRateRecord, paymentMethodRecord).toEntity()
-                    }
+                    },
+                    SingleTypeJoinedRecordToEntityConverter(ProductRecord::class.java) { it.toEntity() }
             )
 }

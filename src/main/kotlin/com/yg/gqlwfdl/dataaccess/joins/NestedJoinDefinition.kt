@@ -1,6 +1,6 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
-import graphql.language.Field
+import com.yg.gqlwfdl.ClientField
 import org.jooq.Record
 
 /**
@@ -19,25 +19,26 @@ data class NestedJoinDefinition<TPrimaryRecord : Record, TForeignRecord : Record
     /**
      * Creates a [JoinRequest] instance based on this [NestedJoinDefinition].
      *
-     * @param graphQLField The GraphQL field which caused this set of joins to be created.
-     * @param mapper The mapper to use to get the subsequent joins for the passed in [graphQLField]'s children.
-     * @param rootForChildGraphQLFields Each GraphQL field can have child fields. If it does, the system will need to
-     * know which of the joined tables to use as the starting point for any subsequent joins. This parameter specifies
-     * that. The value specified here should either be this [NestedJoinDefinition] itself, or one of its
+     * @param childFields The child client fields to be used to populate the [subsequent joins][JoinRequest.subsequentJoins]
+     * of the join request.
+     * @param mapper The mapper to use to get the subsequent joins for the passed in [childFields].
+     * @param rootForChildFields Each client field can have child fields. If it does, the system will need to know which
+     * of the joined tables to use as the starting point for any subsequent joins. This parameter specifies that. The
+     * value specified here should either be this [NestedJoinDefinition] itself, or one of its
      * [subsequentJoins][NestedJoinDefinition.subsequentJoins]. This can be null if there are no subsequent joins that
      * need to be processed.
      */
-    fun createRequest(graphQLField: Field,
-                      mapper: GraphQLFieldToJoinMapper,
-                      rootForChildGraphQLFields: NestedJoinDefinition<out Record, out Record>?)
+    fun createRequest(childFields: List<ClientField>,
+                      mapper: ClientFieldToJoinMapper,
+                      rootForChildFields: NestedJoinDefinition<out Record, out Record>?)
             : JoinRequest<out Any, TPrimaryRecord, out Record> {
 
         val subsequentJoinRequests = subsequentJoins.map {
-            it.createRequest(graphQLField, mapper, rootForChildGraphQLFields)
+            it.createRequest(childFields, mapper, rootForChildFields)
         }
 
-        return if (this === rootForChildGraphQLFields)
-            joinDefinition.createRequest(graphQLField, mapper, subsequentJoinRequests)
+        return if (this === rootForChildFields)
+            joinDefinition.createRequest(childFields, mapper, subsequentJoinRequests)
         else
             JoinRequest(joinDefinition, subsequentJoinRequests)
     }

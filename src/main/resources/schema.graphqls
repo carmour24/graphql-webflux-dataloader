@@ -5,6 +5,7 @@ type Customer {
   company: Company!
   outOfOfficeDelegate: Customer
   pricingDetails: PricingDetails
+  orders: [Order]
 }
 
 type Company {
@@ -27,13 +28,44 @@ type PricingDetails {
   preferredPaymentMethodDescription: String!
 }
 
+type Product {
+  id: ID!
+  description: String!
+  price: Float!
+  company: Company!
+  orderCount: Int!
+}
+
+type OrderLine {
+  id: ID!
+  product: Product!
+  price: Float!
+}
+
+type Order {
+  id: ID!
+  customer: Customer!
+  date: String!    # TODO: custom scalar for this. Is there a library that does this already?
+  deliveryAddress: String!
+  lines: [OrderLine]!
+}
+
 type Query {
   customers: [Customer]
   customersByIds(ids: [Int]!): [Customer]
   companies: [Company]
   companyPartnerships: [CompanyPartnership]
+  products: [Product]
+  topSellingProducts(count: Int!): [Product]
+  orders: [Order]
+  ordersByIds(ids: [Int]!): [Order]
+}
+
+type Mutation {
+   createTestData: String
 }
 
 schema {
   query: Query
+  mutation: Mutation
 }

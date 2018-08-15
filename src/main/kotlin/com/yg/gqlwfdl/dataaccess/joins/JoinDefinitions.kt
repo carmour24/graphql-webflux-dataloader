@@ -1,6 +1,6 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
-import com.yg.gqlwfdl.yg.db.public_.Tables.*
+import com.yg.gqlwfdl.dataaccess.db.Tables.*
 
 /**
  * Join from the [PRICING_DETAILS] table to the [VAT_RATE] table.
@@ -31,7 +31,7 @@ val COMPANY_PARTNERSHIP_COMPANY_B = JoinDefinition("partnershipCompanyB", COMPAN
 /**
  * Join from the [CUSTOMER] table to the [COMPANY] table.
  */
-val CUSTOMER_COMPANY = JoinDefinition("company", CUSTOMER.COMPANY_ID, COMPANY.ID)
+val CUSTOMER_COMPANY = JoinDefinition("company", CUSTOMER.COMPANY, COMPANY.ID)
 
 /**
  * Join from the [CUSTOMER] table to the [CUSTOMER] table, for the out-of-office delegate value.
@@ -52,3 +52,8 @@ val COMPANY_PRIMARY_CONTACT = JoinDefinition("primaryContact", COMPANY.PRIMARY_C
  * Join from the [COMPANY] table to the [PRICING_DETAILS] table.
  */
 val COMPANY_PRICING_DETAILS = JoinDefinition("pricingDetails", COMPANY.PRICING_DETAILS, PRICING_DETAILS.ID)
+
+/**
+ * Join from the [PRODUCT] table to the [COMPANY] table.
+ */
+val PRODUCT_COMPANY = JoinDefinition("company", PRODUCT.COMPANY, COMPANY.ID)

@@ -1,7 +1,7 @@
 package com.yg.gqlwfdl.services
 
+import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.dataaccess.PricingDetailsRepository
-import graphql.schema.DataFetchingEnvironment
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -14,17 +14,19 @@ interface PricingDetailsService {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [PricingDetails] objects.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findAll(env: DataFetchingEnvironment? = null): CompletableFuture<List<PricingDetails>>
+    fun findAll(requestInfo: EntityRequestInfo? = null): CompletableFuture<List<PricingDetails>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [PricingDetails] objects
      * with the passed in IDs.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findByIds(ids: List<Long>, env: DataFetchingEnvironment? = null): CompletableFuture<List<PricingDetails>>
+    fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<PricingDetails>>
 }
 
 /**
@@ -34,9 +36,8 @@ interface PricingDetailsService {
 class DefaultPricingDetailsService(private val pricingDetailsRepository: PricingDetailsRepository)
     : PricingDetailsService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<PricingDetails>> =
-            pricingDetailsRepository.findAll(env)
+    override fun findAll(requestInfo: EntityRequestInfo?) = pricingDetailsRepository.findAll(requestInfo)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<PricingDetails>> =
-            pricingDetailsRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
+            pricingDetailsRepository.findByIds(ids, requestInfo)
 }

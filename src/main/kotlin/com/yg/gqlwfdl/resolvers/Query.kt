@@ -1,10 +1,8 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLQueryResolver
-import com.yg.gqlwfdl.services.CompanyPartnershipService
-import com.yg.gqlwfdl.services.CompanyService
-import com.yg.gqlwfdl.services.Customer
-import com.yg.gqlwfdl.services.CustomerService
+import com.yg.gqlwfdl.services.*
+import com.yg.gqlwfdl.toEntityRequestInfo
 import com.yg.gqlwfdl.withLogging
 import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
@@ -16,30 +14,65 @@ import java.util.concurrent.CompletableFuture
  */
 class Query(private val customerService: CustomerService,
             private val companyService: CompanyService,
-            private val companyPartnershipService: CompanyPartnershipService)
+            private val companyPartnershipService: CompanyPartnershipService,
+            private val productService: ProductService,
+            private val orderService: OrderService)
     : GraphQLQueryResolver {
 
     /**
      * Gets all customers in the system.
      */
     fun customers(env: DataFetchingEnvironment): CompletableFuture<List<Customer>> =
-            withLogging("getting all customers") { customerService.findAll(env) }
+            withLogging("getting all customers") { customerService.findAll(env.toEntityRequestInfo()) }
 
     /**
      * Gets all customers with the passed in IDs.
      */
     fun customersByIds(ids: List<Long>, env: DataFetchingEnvironment): CompletableFuture<List<Customer>> =
-            withLogging("getting customers with IDs $ids") { customerService.findByIds(ids, env) }
+            withLogging("getting customers with IDs $ids") { customerService.findByIds(ids, env.toEntityRequestInfo()) }
 
     /**
      * Gets all companies in the system.
      */
     fun companies(env: DataFetchingEnvironment) =
-            withLogging("getting all companies") { companyService.findAll(env) }
+            withLogging("getting all companies") { companyService.findAll(env.toEntityRequestInfo()) }
 
     /**
      * Gets all company partnerships in the system.
      */
     fun companyPartnerships(env: DataFetchingEnvironment) =
-            withLogging("getting all company partnerships") { companyPartnershipService.findAll(env) }
+            withLogging("getting all company partnerships") { companyPartnershipService.findAll(env.toEntityRequestInfo()) }
+
+    /**
+     * Gets all products in the system.
+     */
+    fun products(env: DataFetchingEnvironment) =
+            withLogging("getting all products") { productService.findAll(env.toEntityRequestInfo()) }
+
+    /**
+     * Gets the [count] top-selling products in the system.
+     */
+    fun topSellingProducts(count: Int, env: DataFetchingEnvironment): CompletableFuture<List<Product>> {
+        // Get the top-selling products - this will return a list of EntityWithCount objects (wrapping the Product
+        // objects). This will have primed the 'env.context.productOrderCountDataLoader' with the order counts. Convert
+        // the returned value back to simple Product objects. The GraphQL libraries will then the ProductResolver
+        // for the order count for each product, and it will in turn ask that data loader, which will be able to use
+        // the pre-cached values rather than querying again.
+        return withLogging("getting $count top-selling products") {
+            productService.findTopSelling(count, env.toEntityRequestInfo())
+                    .thenApply { results -> results.map { it.entity } }
+        }
+    }
+
+    /**
+     * Gets all orders in the system.
+     */
+    fun orders(env: DataFetchingEnvironment) =
+            withLogging("getting all orders") { orderService.findAll(env.toEntityRequestInfo()) }
+
+    /**
+     * Gets all orders with the passed in IDs.
+     */
+    fun ordersByIds(ids: List<Long>, env: DataFetchingEnvironment): CompletableFuture<List<Order>> =
+            withLogging("getting orders with IDs $ids") { orderService.findByIds(ids, env.toEntityRequestInfo()) }
 }

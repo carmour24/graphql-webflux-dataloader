@@ -1,7 +1,7 @@
 package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CompanyPartnershipRepository
-import graphql.schema.DataFetchingEnvironment
+import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -14,17 +14,19 @@ interface CompanyPartnershipService {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [CompanyPartnership] objects.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findAll(env: DataFetchingEnvironment? = null): CompletableFuture<List<CompanyPartnership>>
+    fun findAll(requestInfo: EntityRequestInfo?): CompletableFuture<List<CompanyPartnership>>
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [CompanyPartnership] objects
      * with the passed in IDs.
      *
-     * @param env The environment for the current GraphQL data fetch, if this method is called from such a context.
+     * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
+     * client, if the call was made from the context of a client request.
      */
-    fun findByIds(ids: List<Long>, env: DataFetchingEnvironment? = null): CompletableFuture<List<CompanyPartnership>>
+    fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<CompanyPartnership>>
 }
 
 /**
@@ -34,9 +36,8 @@ interface CompanyPartnershipService {
 class DefaultCompanyPartnershipService(private val companyPartnershipRepository: CompanyPartnershipRepository)
     : CompanyPartnershipService {
 
-    override fun findAll(env: DataFetchingEnvironment?): CompletableFuture<List<CompanyPartnership>> =
-            companyPartnershipRepository.findAll(env)
+    override fun findAll(requestInfo: EntityRequestInfo?) = companyPartnershipRepository.findAll(requestInfo)
 
-    override fun findByIds(ids: List<Long>, env: DataFetchingEnvironment?): CompletableFuture<List<CompanyPartnership>> =
-            companyPartnershipRepository.findByIds(ids, env)
+    override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
+            companyPartnershipRepository.findByIds(ids, requestInfo)
 }

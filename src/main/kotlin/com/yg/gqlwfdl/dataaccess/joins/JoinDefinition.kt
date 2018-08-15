@@ -1,8 +1,7 @@
 package com.yg.gqlwfdl.dataaccess.joins
 
-import graphql.language.Field
+import com.yg.gqlwfdl.ClientField
 import org.jooq.Record
-import org.jooq.Table
 import org.jooq.TableField
 
 /**
@@ -25,22 +24,17 @@ data class JoinDefinition<TFieldType : Any, TPrimaryRecord : Record, TForeignRec
     /**
      * Creates a [JoinRequest] instance based on this [JoinDefinition].
      *
-     * @param graphQLField The GraphQL field which caused this join to be created. This field's children will be
-     * used to populate the [subsequent joins][JoinRequest.subsequentJoins] of the join request.
-     * @param mapper The mapper to use to get the subsequent joins for the passed in [graphQLField]'s children.
+     * @param childFields The child client fields to be used to populate the [subsequent joins][JoinRequest.subsequentJoins]
+     * of the join request.
+     * @param mapper The mapper to use to get the subsequent joins for the passed in [childFields].
      * @param subsequentJoinRequests Any subsequent joins that should be added to this, in addition to any which are
-     * calculated based on the passed in [graphQLField]'s children.
+     * calculated based on the passed in [childFields].
      */
-    fun createRequest(graphQLField: Field,
-                      mapper: GraphQLFieldToJoinMapper,
+    fun createRequest(childFields: List<ClientField>,
+                      mapper: ClientFieldToJoinMapper,
                       subsequentJoinRequests: List<JoinRequest<out Any, TForeignRecord, out Record>> = listOf())
             : JoinRequest<TFieldType, TPrimaryRecord, TForeignRecord> {
-        return JoinRequest(this, mapper.getJoinRequests(graphQLField, foreignField.table).plus(subsequentJoinRequests))
+        return JoinRequest(this, mapper.getJoinRequests(childFields, foreignField.table)
+                .plus(subsequentJoinRequests))
     }
-
-    /**
-     * Gets an instance of the foreign table, aliased to ensure it has a unique name in the query.
-     */
-    fun getAliasedForeignTable(primaryTableInstance: Table<TPrimaryRecord>): Table<TForeignRecord> =
-            foreignField.table.`as`("${primaryTableInstance.name}_$name")
 }
