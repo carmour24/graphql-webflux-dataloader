@@ -43,7 +43,7 @@ CREATE TABLE customer (
     id bigint NOT NULL CONSTRAINT customer_pkey PRIMARY KEY,
     first_name text NOT NULL,
     last_name text NOT NULL,
-    company_id bigint NOT NULL,
+    company bigint NOT NULL,
     out_of_office_delegate bigint,
     pricing_details bigint NOT NULL
 );
@@ -182,7 +182,8 @@ ALTER TABLE ONLY "order" ALTER COLUMN id SET DEFAULT nextval('order_id_seq'::reg
 CREATE TABLE order_line (
     id bigint NOT NULL CONSTRAINT order_line_pkey PRIMARY KEY,
     "order" bigint NOT NULL,
-    product bigint NOT NULL
+    product bigint NOT NULL,
+    price double precision NOT NULL
 );
 
 CREATE SEQUENCE order_line_id_seq

@@ -29,5 +29,5 @@ class ProductResolver : DataLoadingResolver(), GraphQLResolver<Product> {
      */
     fun orderCount(product: Product, env: DataFetchingEnvironment): CompletableFuture<Int> =
             prepareDataLoader(env) { env.requestContext.productOrderCountDataLoader }.load(product.id)
-                    .thenApply { it?.count ?: 0 }
+                    .thenApply { it ?: 0 }
 }

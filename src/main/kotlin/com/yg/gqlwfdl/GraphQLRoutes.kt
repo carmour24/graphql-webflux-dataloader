@@ -5,10 +5,7 @@ import com.coxautodev.graphql.tools.SchemaParserOptions
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.dataloaders.DataLoaderFactory
 import com.yg.gqlwfdl.resolvers.*
-import com.yg.gqlwfdl.services.CompanyPartnershipService
-import com.yg.gqlwfdl.services.CompanyService
-import com.yg.gqlwfdl.services.CustomerService
-import com.yg.gqlwfdl.services.ProductService
+import com.yg.gqlwfdl.services.*
 import graphql.ExecutionInput
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
@@ -41,10 +38,12 @@ class GraphQLRoutes(customerService: CustomerService,
                     companyService: CompanyService,
                     companyPartnershipService: CompanyPartnershipService,
                     productService: ProductService,
+                    orderService: OrderService,
                     private val dataLoaderFactory: DataLoaderFactory,
                     dbConfig: DBConfig) {
 
-    private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService, dbConfig)
+    private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService,
+            orderService, dbConfig)
 
     /**
      * Sets up the routes (i.e. handles GET and POST to /graphql, and also serves up the graphiql HTML page).
@@ -129,17 +128,20 @@ private fun buildSchema(customerService: CustomerService,
                         companyService: CompanyService,
                         companyPartnershipService: CompanyPartnershipService,
                         productService: ProductService,
+                        orderService: OrderService,
                         dbConfig: DBConfig): GraphQLSchema {
 
     return SchemaParser.newParser()
             .file("schema.graphqls")
             .resolvers(
-                    Query(customerService, companyService, companyPartnershipService, productService),
+                    Query(customerService, companyService, companyPartnershipService, productService, orderService),
                     CustomerResolver(),
                     CompanyResolver(),
                     PricingDetailsResolver(),
                     ProductResolver(),
+                    OrderResolver(),
                     Mutation(dbConfig))
+            .dictionary("OrderLine", Order.Line::class.java)
             .options(SchemaParserOptions.newOptions()
                     .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))
                     .build())

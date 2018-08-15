@@ -31,7 +31,7 @@ val COMPANY_PARTNERSHIP_COMPANY_B = JoinDefinition("partnershipCompanyB", COMPAN
 /**
  * Join from the [CUSTOMER] table to the [COMPANY] table.
  */
-val CUSTOMER_COMPANY = JoinDefinition("company", CUSTOMER.COMPANY_ID, COMPANY.ID)
+val CUSTOMER_COMPANY = JoinDefinition("company", CUSTOMER.COMPANY, COMPANY.ID)
 
 /**
  * Join from the [CUSTOMER] table to the [CUSTOMER] table, for the out-of-office delegate value.

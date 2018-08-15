@@ -55,22 +55,22 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         setPrimaryContacts(statement, companies, customers)
         createCompanyPartnerships(statement, companies)
         val products = createProducts(statement, companies)
-        val orders = createOrders(statement, customers)
-        createOrderLines(statement, orders, products)
+        val orderIds = createOrders(statement, customers)
+        createOrderLines(statement, orderIds, products)
     }
 
-    private fun createOrderLines(statement: Statement, orders: List<Order>, products: List<Product>) {
-        orders.forEach { order ->
+    private fun createOrderLines(statement: Statement, orderIds: List<Long>, products: List<Product>) {
+        orderIds.forEach { orderId ->
             products.randomItems(LINES_PER_ORDER.randomItem()).forEach { product ->
                 statement.execute("""
-                        |insert into order_line ("order", product)
-                        |values (${order.id}, ${product.id});
+                        |insert into order_line ("order", product, price)
+                        |values ($orderId, ${product.id}, ${getRandomPrice()});
                     """.trimMargin())
             }
         }
     }
 
-    private fun createOrders(statement: Statement, customers: List<Customer>): List<Order> {
+    private fun createOrders(statement: Statement, customers: List<Customer>): List<Long> {
         val secondsInAYear = 365 * 24 * 60 * 60
 
         customers.forEach { customer ->
@@ -93,20 +93,16 @@ class TestDataCreator(private val dbConfig: DBConfig) {
             }
         }
 
-        return listFromQuery(statement, """select id, customer, date, delivery_address from "order" order by id""") {
-            Order(it.getLong("id"), it.getLong("customer"), it.getObject("date", OffsetDateTime::class.java),
-                    it.getString("delivery_address"))
-        }
+        return listFromQuery(statement, """select id from "order" order by id""") { it.getLong("id") }
     }
 
+    private fun getRandomPrice() = (99..9999).randomItem().toDouble() / 100
+
     private fun createProducts(statement: Statement, companies: List<Company>): List<Product> {
-        // Products with a random price of between 0.99 and 99.99
-        val priceRange = (99..9999)
         for (i in 1..PRODUCT_COUNT) {
-            val price = priceRange.randomItem().toDouble() / 100
             statement.addBatch("""
                 |insert into product (description, price, company)
-                |values ('Product $i', $price, ${companies.randomItem().id});
+                |values ('Product $i', ${getRandomPrice()}, ${companies.randomItem().id});
             """.trimMargin())
         }
         statement.executeBatch()
@@ -242,7 +238,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         companies.forEach { company: Company ->
             (1..CUSTOMERS_PER_COMPANY).forEach { userNumber: Int ->
                 statement.addBatch("""
-                    | insert into customer (first_name, last_name, company_id, pricing_details) values (
+                    | insert into customer (first_name, last_name, company, pricing_details) values (
                     | 'User-$userNumber', 'From-${company.name}', ${company.id}, ${pricingDetails.randomItem().id});
                 """.trimMargin())
             }
@@ -250,9 +246,9 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         statement.executeBatch()
 
         return listFromQuery(statement,
-                "select id, first_name, last_name, company_id, pricing_details from customer order by id") {
+                "select id, first_name, last_name, company, pricing_details from customer order by id") {
             Customer(it.getLong("id"), it.getString("first_name"), it.getString("last_name"),
-                    it.getLong("company_id"), it.getLong("pricing_details"))
+                    it.getLong("company"), it.getLong("pricing_details"))
         }
     }
 

@@ -66,6 +66,9 @@ class DefaultRecordProvider : RecordProvider {
                     }),
                     Pair(PaymentMethodRecord::class.java, { queryInfo, row, table ->
                         row.toPaymentMethodRecord(queryInfo, table as Table<PaymentMethodRecord>)
+                    }),
+                    Pair(ProductRecord::class.java, { queryInfo, row, table ->
+                        row.toProductRecord(queryInfo, table as Table<ProductRecord>)
                     }))
 
     // Ignore unsafe cast - we know this is safe.

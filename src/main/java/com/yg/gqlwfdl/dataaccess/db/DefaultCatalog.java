@@ -40,7 +40,7 @@ public class DefaultCatalog extends CatalogImpl {
     public final Public PUBLIC = com.yg.gqlwfdl.dataaccess.db.Public.PUBLIC;
 
     /**
-     * No further instances allowed
+     * No further joinInstances allowed
      */
     private DefaultCatalog() {
         super("");

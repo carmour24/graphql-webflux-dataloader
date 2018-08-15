@@ -27,14 +27,12 @@ class DBCompanyRepository(create: DSLContext,
                           recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
                           clientFieldToJoinMapper: ClientFieldToJoinMapper,
                           recordProvider: RecordProvider)
-    : DBEntityRepository<Company, Long, CompanyRecord, QueryInfo<CompanyRecord>>(
+    : SingleRowDBEntityRepository<Company, Long, CompanyRecord, QueryInfo<CompanyRecord>>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         COMPANY, COMPANY.ID),
         CompanyRepository {
 
-    override fun getRecord(queryInfo: QueryInfo<CompanyRecord>, row: Row) = row.toCompanyRecord(queryInfo)
-
-    override fun getEntity(queryInfo: QueryInfo<CompanyRecord>, row: Row) = getRecord(queryInfo, row).toEntity()
+    override fun getEntity(queryInfo: QueryInfo<CompanyRecord>, row: Row) = row.toCompanyRecord(queryInfo).toEntity()
 }
 
 /**

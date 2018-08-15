@@ -3,10 +3,10 @@ package com.yg.gqlwfdl.dataloaders
 import com.yg.gqlwfdl.ClientField
 
 /**
- * Manages a list of [ClientField]s, providing functionality for "merging" them. Used by [EntityDataLoader]s to keep a
- * list of child fields of the entities being requested. For example, say a request is for a set of users, and each user
- * has a "company" property, which is fetched using this data loader: in this case, this object's list of fields would
- * include that "company" field. The child fields of that company field can then be interrogated to see what
+ * Manages a list of [ClientField]s, providing functionality for "merging" them. Used by [ContextAwareDataLoader]s to
+ * keep a list of child fields of the entities being requested. For example, say a request is for a set of users, and
+ * each user has a "company" property, which is fetched using this data loader: in this case, this object's list of
+ * fields would include that "company" field. The child fields of that company field can then be interrogated to see what
  * company-related information is requested, in case more joins need to be included to fetch this data.
  *
  * Note that a single data loader can be used to provide values for fields requested as part of more than one parent
@@ -35,7 +35,8 @@ class ClientFieldStore {
      * The fields managed by this store, typically the child fields of the entity being returned, which were requested
      * by the client as part of a GraphQL request.
      */
-    val fields: List<ClientField> = _fields.values.toList()
+    val fields: List<ClientField>
+        get() = _fields.values.toList()
 
     /**
      * Adds the passed in [ClientField]s to the list of those expose in [fields]. Any fields which already exist are

@@ -5,6 +5,7 @@ import org.jooq.Field
 import org.jooq.Record
 import org.jooq.Table
 import org.jooq.TableField
+import java.time.OffsetDateTime
 
 /**
  * Aggregates information about a query being executed, for example the instances of all the aliased tables. Provides
@@ -232,4 +233,22 @@ open class QueryInfo<TRecord : Record>(sourceTable: Table<TRecord>) {
      */
     fun getInt(row: Row, table: Table<out Record>, field: Field<Int>): Int =
             getNullableInt(row, table, field)!!
+
+    /**
+     * Gets a date value from the passed in [row], reading it from the passed it [field], which came from the passed
+     * in [table] (which must exist in this query, in order that the correct alias it was assigned can be found).
+     *
+     * Returns the date value in that field, or null if it has no such value (or no such field).
+     */
+    fun getNullableDate(row: Row, table: Table<out Record>, field: Field<OffsetDateTime>): OffsetDateTime? =
+            row.getOffsetDateTime(getAliasedFieldName(table, field))
+
+    /**
+     * Gets a date value from the passed in [row], reading it from the passed it [field], which came from the passed
+     * in [table] (which must exist in this query, in order that the correct alias it was assigned can be found).
+     *
+     * Returns the date value in that field, or thrown an exception if the value was null (or no such field exists).
+     */
+    fun getDate(row: Row, table: Table<out Record>, field: Field<OffsetDateTime>): OffsetDateTime =
+            getNullableDate(row, table, field)!!
 }

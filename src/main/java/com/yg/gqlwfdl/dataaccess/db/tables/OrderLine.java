@@ -41,7 +41,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class OrderLine extends TableImpl<OrderLineRecord> {
 
-    private static final long serialVersionUID = 1550262011;
+    private static final long serialVersionUID = 1011134336;
 
     /**
      * The reference instance of <code>public.order_line</code>
@@ -70,6 +70,11 @@ public class OrderLine extends TableImpl<OrderLineRecord> {
      * The column <code>public.order_line.product</code>.
      */
     public final TableField<OrderLineRecord, Long> PRODUCT = createField("product", org.jooq.impl.SQLDataType.BIGINT.nullable(false), this, "");
+
+    /**
+     * The column <code>public.order_line.price</code>.
+     */
+    public final TableField<OrderLineRecord, Double> PRICE = createField("price", org.jooq.impl.SQLDataType.DOUBLE, this, "");
 
     /**
      * Create a <code>public.order_line</code> table reference

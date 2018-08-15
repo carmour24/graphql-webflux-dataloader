@@ -2,7 +2,6 @@ package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.dataaccess.ProductRepository
-import com.yg.gqlwfdl.withLogging
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -31,12 +30,13 @@ interface ProductService {
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Product] objects with the
-     * passed in IDs, along with their order counts, wrapped in an [ProductOrderCount] object.
+     * passed in IDs, along with their order counts, wrapped in an [EntityWithCount] object.
      *
      * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
      * client, if the call was made from the context of a client request.
      */
-    fun findWithOrderCount(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<ProductOrderCount>>
+    fun findWithOrderCount(ids: List<Long>, requestInfo: EntityRequestInfo? = null):
+            CompletableFuture<List<EntityWithCount<Long, Product>>>
 
     /**
      * Gets the top [count] best selling products.
@@ -44,7 +44,8 @@ interface ProductService {
      * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
      * client, if the call was made from the context of a client request.
      */
-    fun findTopSelling(count: Int, requestInfo: EntityRequestInfo?): CompletableFuture<List<ProductOrderCount>>
+    fun findTopSelling(count: Int, requestInfo: EntityRequestInfo?):
+            CompletableFuture<List<EntityWithCount<Long, Product>>>
 }
 
 /**
@@ -55,7 +56,7 @@ class DefaultProductService(private val productRepository: ProductRepository) : 
     override fun findAll(requestInfo: EntityRequestInfo?) = productRepository.findAll(requestInfo)
 
     override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
-            withLogging("getting companies with IDs $ids") { productRepository.findByIds(ids, requestInfo) }
+            productRepository.findByIds(ids, requestInfo)
 
     override fun findWithOrderCount(ids: List<Long>, requestInfo: EntityRequestInfo?) =
             productRepository.findWithOrderCount(ids, requestInfo)

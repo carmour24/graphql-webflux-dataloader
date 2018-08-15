@@ -32,14 +32,12 @@ class DBPricingDetailsRepository(create: DSLContext,
                                  recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
                                  clientFieldToJoinMapper: ClientFieldToJoinMapper,
                                  recordProvider: RecordProvider)
-    : DBEntityRepository<PricingDetails, Long, PricingDetailsRecord, PricingDetailsQueryInfo>(
+    : SingleRowDBEntityRepository<PricingDetails, Long, PricingDetailsRecord, PricingDetailsQueryInfo>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         PRICING_DETAILS, PRICING_DETAILS.ID),
         PricingDetailsRepository {
 
     override fun getQueryInfo(table: Table<PricingDetailsRecord>) = PricingDetailsQueryInfo(table)
-
-    override fun getRecord(queryInfo: PricingDetailsQueryInfo, row: Row) = row.toPricingDetailsRecord(queryInfo)
 
     override fun getEntity(queryInfo: PricingDetailsQueryInfo, row: Row): PricingDetails {
         return PricingDetailsRecords(
@@ -53,22 +51,28 @@ class DBPricingDetailsRepository(create: DSLContext,
     // Ignore unchecked casts here for the places we ask for a field's instance from a table, as we know the returned
     // value will be a TableField
     @Suppress("UNCHECKED_CAST")
-    override fun getDefaultJoins(queryInfo: PricingDetailsQueryInfo)
-            : List<JoinInstance<out Any, PricingDetailsRecord, out Record>> {
+    override fun getDefaultJoinSets(queryInfo: PricingDetailsQueryInfo): List<JoinInstanceSet<out Record>> {
 
-        return listOf(
+        // A single join instance set, as all joins initiate from the same primary table (PRICING_DETAILS).
+        // From that table come three separate joins...
+        return listOf(JoinInstanceSet(queryInfo.primaryTable, listOf(
                 JoinInstance(
                         PRICING_DETAILS_VAT_RATE,
-                        queryInfo.primaryTable.field(PRICING_DETAILS.VAT_RATE) as TableField<PricingDetailsRecord, Long>,
+                        queryInfo.primaryTable.field(PRICING_DETAILS.VAT_RATE)
+                                as TableField<PricingDetailsRecord, Long>,
                         queryInfo.vatRateTable.field(VAT_RATE.ID) as TableField<VatRateRecord, Long>),
                 JoinInstance(
                         PRICING_DETAILS_DISCOUNT_RATE,
-                        queryInfo.primaryTable.field(PRICING_DETAILS.DISCOUNT_RATE) as TableField<PricingDetailsRecord, Long>,
+                        queryInfo.primaryTable.field(PRICING_DETAILS.DISCOUNT_RATE)
+                                as TableField<PricingDetailsRecord, Long>,
                         queryInfo.discountRateTable.field(DISCOUNT_RATE.ID) as TableField<DiscountRateRecord, Long>),
                 JoinInstance(
                         PRICING_DETAILS_PREFERRED_PAYMENT_METHOD,
-                        queryInfo.primaryTable.field(PRICING_DETAILS.PREFERRED_PAYMENT_METHOD) as TableField<PricingDetailsRecord, Long>,
-                        queryInfo.paymentMethodTable.field(PAYMENT_METHOD.ID) as TableField<PaymentMethodRecord, Long>))
+                        queryInfo.primaryTable.field(PRICING_DETAILS.PREFERRED_PAYMENT_METHOD)
+                                as TableField<PricingDetailsRecord, Long>,
+                        queryInfo.paymentMethodTable.field(PAYMENT_METHOD.ID)
+                                as TableField<PaymentMethodRecord, Long>)))
+        )
     }
 }
 

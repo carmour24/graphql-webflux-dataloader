@@ -3,10 +3,12 @@ package com.yg.gqlwfdl.resolvers
 import com.coxautodev.graphql.tools.GraphQLResolver
 import com.yg.gqlwfdl.dataloaders.companyDataLoader
 import com.yg.gqlwfdl.dataloaders.customerDataLoader
+import com.yg.gqlwfdl.dataloaders.customerOrderDataLoader
 import com.yg.gqlwfdl.dataloaders.pricingDetailsDataLoader
 import com.yg.gqlwfdl.requestContext
 import com.yg.gqlwfdl.services.Company
 import com.yg.gqlwfdl.services.Customer
+import com.yg.gqlwfdl.services.Order
 import com.yg.gqlwfdl.services.PricingDetails
 import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
@@ -41,4 +43,10 @@ class CustomerResolver : DataLoadingResolver(), GraphQLResolver<Customer> {
      */
     fun pricingDetails(customer: Customer, env: DataFetchingEnvironment): CompletableFuture<PricingDetails> =
             prepareDataLoader(env) { env.requestContext.pricingDetailsDataLoader }.load(customer.pricingDetailsId)
+
+    /**
+     * Gets a [CompletableFuture] which, when completed, will return the [Order]s for the passed in customer.
+     */
+    fun orders(customer: Customer, env: DataFetchingEnvironment): CompletableFuture<List<Order>> =
+            prepareDataLoader(env) { env.requestContext.customerOrderDataLoader }.load(customer.id)
 }

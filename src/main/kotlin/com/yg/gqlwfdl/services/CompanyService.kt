@@ -2,7 +2,6 @@ package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CompanyRepository
 import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
-import com.yg.gqlwfdl.withLogging
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -39,5 +38,5 @@ class DefaultCompanyService(private val companyRepository: CompanyRepository) : 
     override fun findAll(requestInfo: EntityRequestInfo?) = companyRepository.findAll(requestInfo)
 
     override fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo?) =
-            withLogging("getting companies with IDs $ids") { companyRepository.findByIds(ids, requestInfo) }
+            companyRepository.findByIds(ids, requestInfo)
 }

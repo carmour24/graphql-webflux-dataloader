@@ -27,21 +27,19 @@ class DBCustomerRepository(create: DSLContext,
                            recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
                            clientFieldToJoinMapper: ClientFieldToJoinMapper,
                            recordProvider: RecordProvider)
-    : DBEntityRepository<Customer, Long, CustomerRecord, QueryInfo<CustomerRecord>>(
+    : SingleRowDBEntityRepository<Customer, Long, CustomerRecord, QueryInfo<CustomerRecord>>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
         CustomerRepository {
 
-    override fun getRecord(queryInfo: QueryInfo<CustomerRecord>, row: Row) = row.toCustomerRecord(queryInfo)
-
-    override fun getEntity(queryInfo: QueryInfo<CustomerRecord>, row: Row) = getRecord(queryInfo, row).toEntity()
+    override fun getEntity(queryInfo: QueryInfo<CustomerRecord>, row: Row) = row.toCustomerRecord(queryInfo).toEntity()
 }
 
 /**
  * Converts a [CustomerRecord] to its corresponding entity, a [Customer].
  */
 fun CustomerRecord.toEntity() =
-        Customer(this.id, this.firstName, this.lastName, this.companyId, this.pricingDetails, this.outOfOfficeDelegate)
+        Customer(this.id, this.firstName, this.lastName, this.company, this.pricingDetails, this.outOfOfficeDelegate)
 
 /**
  * Gets a [CustomerRecord] from this [Row], reading the data from the passed in [queryInfo]'s
@@ -68,7 +66,7 @@ fun Row.toCustomerRecord(queryInfo: QueryInfo<out Record>,
             queryInfo.getLong(this, customerTable, CUSTOMER.ID),
             queryInfo.getString(this, customerTable, CUSTOMER.FIRST_NAME),
             queryInfo.getString(this, customerTable, CUSTOMER.LAST_NAME),
-            queryInfo.getLong(this, customerTable, CUSTOMER.COMPANY_ID),
+            queryInfo.getLong(this, customerTable, CUSTOMER.COMPANY),
             queryInfo.getNullableLong(this, customerTable, CUSTOMER.OUT_OF_OFFICE_DELEGATE),
             queryInfo.getLong(this, customerTable, CUSTOMER.PRICING_DETAILS))
 }

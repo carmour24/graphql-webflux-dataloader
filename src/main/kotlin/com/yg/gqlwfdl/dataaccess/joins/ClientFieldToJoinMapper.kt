@@ -36,7 +36,10 @@ abstract class DefinitionBasedClientFieldToJoinMapper(private val mappings: List
      * Gets a list containing all the join mappings whose primary table matches the passed in [table].
      */
     private fun <TRecord : Record> allFrom(table: Table<TRecord>): List<ClientFieldToJoinMapping<TRecord>> {
-        return mappings.filter { it.sourceTable == table }.map {
+        // Check equality by javaClass to ensure that an aliased table is considered to be equivalent to another
+        // (typically unaliased) instance of the same table. This allows aliased tables to be passed into here when the
+        // definition refers to the unaliased table.
+        return mappings.filter { it.sourceTable.javaClass == table.javaClass }.map {
             // We can ignore unchecked casts here as the previous check in the filter ensure this wouldn't happen
             @Suppress("UNCHECKED_CAST")
             it as ClientFieldToJoinMapping<TRecord>

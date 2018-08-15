@@ -24,7 +24,7 @@ fun Field.toClientField(): ClientField = ClientField(this.name, this.getChildCli
  * Gets an [EntityRequestInfo] from `this` (a [DataFetchingEnvironment]).
  */
 fun DataFetchingEnvironment.toEntityRequestInfo() = EntityRequestInfo(
-        this.field.getChildClientFields(), this.requestContext.dataLoaderPrimerEntityCreationListener)
+        this.requestContext, this.field.getChildClientFields())
 
 /**
  * Gets the [RequestContext] of the current request from `this` (a [DataFetchingEnvironment]). Assumes that the

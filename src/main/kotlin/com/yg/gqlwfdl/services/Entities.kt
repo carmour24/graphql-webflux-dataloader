@@ -74,18 +74,16 @@ data class Product(override val id: Long,
 data class Order(override val id: Long,
                  var customerId: Long,
                  var date: OffsetDateTime,
-                 var deliveryAddress: String) : Entity<Long>
+                 var deliveryAddress: String,
+                 val lines: List<Line>) : Entity<Long> {
+
+    data class Line(val id: Long,
+                    var product: Product,
+                    var price: Double)
+}
 
 /**
  * A wrapper around an [Entity] which exposes the entity itself, and a count.
  */
-abstract class EntityWithCount<TId, TEntity : Entity<TId>>(override val entity: TEntity,
-                                                           val count: Int) : EntityWrapper<TId, Entity<TId>>
-
-/**
- * Represent a [Product] along with the number of orders for it.
- */
-// TODO: make this a data class, or get rid of superclass? Ideally this class wouldn't even exist, but because of type
-// erasure we need a concrete class rather than multiple instances of EntityWithCount for various bits of code that rely
-// on being able to identify a class, e.g. DataLoaderPrimerEntityCreationListener
-class ProductOrderCount(entity: Product, count: Int) : EntityWithCount<Long, Product>(entity, count)
+class EntityWithCount<TId, TEntity : Entity<TId>>(override val entity: TEntity,
+                                                  val count: Int) : EntityWrapper<TId, Entity<TId>>

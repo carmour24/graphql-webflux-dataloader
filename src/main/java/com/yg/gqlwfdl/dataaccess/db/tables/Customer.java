@@ -41,7 +41,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Customer extends TableImpl<CustomerRecord> {
 
-    private static final long serialVersionUID = 2006250434;
+    private static final long serialVersionUID = -263019258;
 
     /**
      * The reference instance of <code>public.customer</code>
@@ -72,9 +72,9 @@ public class Customer extends TableImpl<CustomerRecord> {
     public final TableField<CustomerRecord, String> LAST_NAME = createField("last_name", org.jooq.impl.SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.customer.company_id</code>.
+     * The column <code>public.customer.company</code>.
      */
-    public final TableField<CustomerRecord, Long> COMPANY_ID = createField("company_id", org.jooq.impl.SQLDataType.BIGINT.nullable(false), this, "");
+    public final TableField<CustomerRecord, Long> COMPANY = createField("company", org.jooq.impl.SQLDataType.BIGINT.nullable(false), this, "");
 
     /**
      * The column <code>public.customer.out_of_office_delegate</code>.

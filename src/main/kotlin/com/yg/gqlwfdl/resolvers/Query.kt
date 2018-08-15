@@ -15,7 +15,8 @@ import java.util.concurrent.CompletableFuture
 class Query(private val customerService: CustomerService,
             private val companyService: CompanyService,
             private val companyPartnershipService: CompanyPartnershipService,
-            private val productService: ProductService)
+            private val productService: ProductService,
+            private val orderService: OrderService)
     : GraphQLQueryResolver {
 
     /**
@@ -52,8 +53,8 @@ class Query(private val customerService: CustomerService,
      * Gets the [count] top-selling products in the system.
      */
     fun topSellingProducts(count: Int, env: DataFetchingEnvironment): CompletableFuture<List<Product>> {
-        // Get the top-selling products - this will return a list of ProductOrderCount (which will have primed the
-        // 'env.requestContext.productOrderCountDataLoader' (i.e. stored the order count for each product). Convert
+        // Get the top-selling products - this will return a list of EntityWithCount objects (wrapping the Product
+        // objects). This will have primed the 'env.context.productOrderCountDataLoader' with the order counts. Convert
         // the returned value back to simple Product objects. The GraphQL libraries will then the ProductResolver
         // for the order count for each product, and it will in turn ask that data loader, which will be able to use
         // the pre-cached values rather than querying again.
@@ -62,4 +63,16 @@ class Query(private val customerService: CustomerService,
                     .thenApply { results -> results.map { it.entity } }
         }
     }
+
+    /**
+     * Gets all orders in the system.
+     */
+    fun orders(env: DataFetchingEnvironment) =
+            withLogging("getting all orders") { orderService.findAll(env.toEntityRequestInfo()) }
+
+    /**
+     * Gets all orders with the passed in IDs.
+     */
+    fun ordersByIds(ids: List<Long>, env: DataFetchingEnvironment): CompletableFuture<List<Order>> =
+            withLogging("getting orders with IDs $ids") { orderService.findByIds(ids, env.toEntityRequestInfo()) }
 }

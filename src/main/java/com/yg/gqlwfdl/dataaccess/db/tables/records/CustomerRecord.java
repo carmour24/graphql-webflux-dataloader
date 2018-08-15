@@ -28,7 +28,7 @@ import org.jooq.impl.UpdatableRecordImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implements Record6<Long, String, String, Long, Long, Long> {
 
-    private static final long serialVersionUID = -5989135;
+    private static final long serialVersionUID = -1346580664;
 
     /**
      * Setter for <code>public.customer.id</code>.
@@ -73,16 +73,16 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
     }
 
     /**
-     * Setter for <code>public.customer.company_id</code>.
+     * Setter for <code>public.customer.company</code>.
      */
-    public void setCompanyId(Long value) {
+    public void setCompany(Long value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>public.customer.company_id</code>.
+     * Getter for <code>public.customer.company</code>.
      */
-    public Long getCompanyId() {
+    public Long getCompany() {
         return (Long) get(3);
     }
 
@@ -175,7 +175,7 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
      */
     @Override
     public Field<Long> field4() {
-        return Customer.CUSTOMER.COMPANY_ID;
+        return Customer.CUSTOMER.COMPANY;
     }
 
     /**
@@ -223,7 +223,7 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
      */
     @Override
     public Long component4() {
-        return getCompanyId();
+        return getCompany();
     }
 
     /**
@@ -271,7 +271,7 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
      */
     @Override
     public Long value4() {
-        return getCompanyId();
+        return getCompany();
     }
 
     /**
@@ -322,7 +322,7 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
      */
     @Override
     public CustomerRecord value4(Long value) {
-        setCompanyId(value);
+        setCompany(value);
         return this;
     }
 
@@ -372,13 +372,13 @@ public class CustomerRecord extends UpdatableRecordImpl<CustomerRecord> implemen
     /**
      * Create a detached, initialised CustomerRecord
      */
-    public CustomerRecord(Long id, String firstName, String lastName, Long companyId, Long outOfOfficeDelegate, Long pricingDetails) {
+    public CustomerRecord(Long id, String firstName, String lastName, Long company, Long outOfOfficeDelegate, Long pricingDetails) {
         super(Customer.CUSTOMER);
 
         set(0, id);
         set(1, firstName);
         set(2, lastName);
-        set(3, companyId);
+        set(3, company);
         set(4, outOfOfficeDelegate);
         set(5, pricingDetails);
     }

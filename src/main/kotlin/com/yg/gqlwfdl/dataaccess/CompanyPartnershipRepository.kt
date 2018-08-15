@@ -28,14 +28,12 @@ class DBCompanyPartnershipRepository(create: DSLContext,
                                      recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
                                      clientFieldToJoinMapper: ClientFieldToJoinMapper,
                                      recordProvider: RecordProvider)
-    : DBEntityRepository<CompanyPartnership, Long, CompanyPartnershipRecord, CompanyPartnershipQueryInfo>(
+    : SingleRowDBEntityRepository<CompanyPartnership, Long, CompanyPartnershipRecord, CompanyPartnershipQueryInfo>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         COMPANY_PARTNERSHIP, COMPANY_PARTNERSHIP.ID),
         CompanyPartnershipRepository {
 
     override fun getQueryInfo(table: Table<CompanyPartnershipRecord>) = CompanyPartnershipQueryInfo(table)
-
-    override fun getRecord(queryInfo: CompanyPartnershipQueryInfo, row: Row) = row.toCompanyPartnershipRecord(queryInfo)
 
     override fun getEntity(queryInfo: CompanyPartnershipQueryInfo, row: Row): CompanyPartnership {
         return CompanyPartnershipRecords(
@@ -48,19 +46,27 @@ class DBCompanyPartnershipRepository(create: DSLContext,
     // Ignore unchecked casts here for the places we ask for a field's instance from a table, as we know the returned
     // value will be a TableField
     @Suppress("UNCHECKED_CAST")
-    override fun getDefaultJoins(queryInfo: CompanyPartnershipQueryInfo)
-            : List<JoinInstance<out Any, CompanyPartnershipRecord, out Record>> {
+    override fun getDefaultJoinSets(queryInfo: CompanyPartnershipQueryInfo): List<JoinInstanceSet<out Record>> {
 
-        return listOf(
+        // A single join instance set, as all joins initiate from the same primary table (COMPANY_PARTNERSHIP).
+        // From that table come two separate joins...
+        return listOf(JoinInstanceSet(queryInfo.primaryTable, listOf(
                 JoinInstance<Long, CompanyPartnershipRecord, CompanyRecord>(
                         COMPANY_PARTNERSHIP_COMPANY_A,
-                        queryInfo.primaryTable.field(COMPANY_PARTNERSHIP.COMPANY_A) as TableField<CompanyPartnershipRecord, Long>,
+                        queryInfo.primaryTable.field(COMPANY_PARTNERSHIP.COMPANY_A)
+                                as TableField<CompanyPartnershipRecord, Long>,
                         queryInfo.companyATable.field(COMPANY.ID) as TableField<CompanyRecord, Long>),
                 JoinInstance<Long, CompanyPartnershipRecord, CompanyRecord>(
                         COMPANY_PARTNERSHIP_COMPANY_B,
-                        queryInfo.primaryTable.field(COMPANY_PARTNERSHIP.COMPANY_B) as TableField<CompanyPartnershipRecord, Long>,
-                        queryInfo.companyBTable.field(COMPANY.ID) as TableField<CompanyRecord, Long>))
+                        queryInfo.primaryTable.field(COMPANY_PARTNERSHIP.COMPANY_B)
+                                as TableField<CompanyPartnershipRecord, Long>,
+                        queryInfo.companyBTable.field(COMPANY.ID) as TableField<CompanyRecord, Long>))))
     }
+
+    override fun EntityRequestInfo.getJoinInstanceSets(queryInfo: CompanyPartnershipQueryInfo) =
+            listOf(getJoinInstanceSet(JoinRequestSource(queryInfo.primaryTable), queryInfo),
+                    getJoinInstanceSet(JoinRequestSource(queryInfo.companyATable, "companyA"), queryInfo),
+                    getJoinInstanceSet(JoinRequestSource(queryInfo.companyBTable, "companyB"), queryInfo))
 }
 
 /**
