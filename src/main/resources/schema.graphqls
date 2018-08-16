@@ -61,8 +61,16 @@ type Query {
   ordersByIds(ids: [Int]!): [Order]
 }
 
+type CustomerInput {
+  firstName: String!
+  lastName: String!
+  company: ID!
+  outOfOfficeDelegate: ID
+}
+
 type Mutation {
    createTestData: String
+   createCustomer(customer: CustomerInput): ID!
 }
 
 schema {

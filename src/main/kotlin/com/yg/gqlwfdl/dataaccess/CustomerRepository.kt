@@ -12,6 +12,8 @@ import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.Table
 import org.springframework.stereotype.Repository
+import java.util.concurrent.CompletableFuture
+
 
 /**
  * Repository providing access to customer information.
@@ -31,6 +33,10 @@ class DBCustomerRepository(create: DSLContext,
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
         CustomerRepository {
+//    override fun insert(entities: List<Customer>): List<CompletableFuture<Long>> {
+//        entities
+//    }
+
 
     override fun getEntity(queryInfo: QueryInfo<CustomerRecord>, row: Row) = row.toCustomerRecord(queryInfo).toEntity()
 }

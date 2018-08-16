@@ -1,5 +1,6 @@
 package com.yg.gqlwfdl.services
 
+import sun.jvm.hotspot.gc.serial.TenuredGeneration
 import java.time.OffsetDateTime
 
 /**
@@ -7,7 +8,7 @@ import java.time.OffsetDateTime
  *
  * @param TId The data type of the unique [id] of this entity.
  */
-interface Entity<TId> {
+interface Entity<TData, TId> {
     /**
      * The unique identifier of this entity.
      */
@@ -18,7 +19,7 @@ interface Entity<TId> {
  * Interface representing an object which wraps an [Entity] and exposes it. Also able to act as an entity itself. Allows
  * the Decorator pattern to be used to add (potentially multiple pieces of) functionality/data to entities.
  */
-interface EntityWrapper<TId, TEntity : Entity<TId>> : Entity<TId> {
+interface EntityWrapper<TId, TData, TEntity : Entity<TData, TId>> : Entity<TData, TId> {
     /**
      * The wrapped entity.
      */
@@ -31,59 +32,63 @@ interface EntityWrapper<TId, TEntity : Entity<TId>> : Entity<TId> {
         get() = entity.id
 }
 
-data class Customer(override val id: Long,
-                    var firstName: String,
-                    var lastName: String,
-                    var companyId: Long,
-                    var pricingDetailsId: Long,
-                    var outOfOfficeDelegate: Long? = null) : Entity<Long>
+interface CustomerData {
+    var firstName: String
+    var lastName: String
+    var companyId: Long
+    var pricingDetailsId: Long
+    var outOfOfficeDelegate: Long?
+}
 
-data class Company(override val id: Long,
-                   var name: String,
-                   var address: String,
-                   var pricingDetailsId: Long,
-                   var primaryContact: Long? = null) : Entity<Long>
+class Customer(customerData: CustomerData, override val id: Long) : CustomerData by customerData, Entity<CustomerData,
+        Long>
 
-data class CompanyPartnership(override val id: Long,
-                              val companyA: Company,
-                              val companyB: Company) : Entity<Long>
+data class Company(
+        var name: String,
+        var address: String,
+        var pricingDetailsId: Long,
+        var primaryContact: Long? = null) : Entity
 
-data class VatRate(override val id: Long,
-                   var description: String,
-                   var value: Double) : Entity<Long>
+data class CompanyPartnership(
+        val companyA: Company,
+        val companyB: Company) : Entity
 
-data class DiscountRate(override val id: Long,
-                        var description: String,
-                        var value: Double) : Entity<Long>
+data class VatRate(
+        var description: String,
+        var value: Double) : Entity
 
-data class PaymentMethod(override val id: Long,
-                         var description: String,
-                         var charge: Double) : Entity<Long>
+data class DiscountRate(
+        var description: String,
+        var value: Double) : Entity
 
-data class PricingDetails(override val id: Long,
-                          var description: String,
-                          var vatRate: VatRate,
-                          var discountRate: DiscountRate,
-                          var preferredPaymentMethod: PaymentMethod) : Entity<Long>
+data class PaymentMethod(
+        var description: String,
+        var charge: Double) : Entity
 
-data class Product(override val id: Long,
-                   var description: String,
-                   var price: Double,
-                   var companyId: Long) : Entity<Long>
+data class PricingDetails(
+        var description: String,
+        var vatRate: VatRate,
+        var discountRate: DiscountRate,
+        var preferredPaymentMethod: PaymentMethod) : Entity
 
-data class Order(override val id: Long,
-                 var customerId: Long,
-                 var date: OffsetDateTime,
-                 var deliveryAddress: String,
-                 val lines: List<Line>) : Entity<Long> {
+data class Product(
+        var description: String,
+        var price: Double,
+        var companyId: Long) : Entity
 
-    data class Line(val id: Long,
-                    var product: Product,
-                    var price: Double)
+data class Order(
+        var customerId: Long,
+        var date: OffsetDateTime,
+        var deliveryAddress: String,
+        val lines: List<Line>) : Entity
+
+data class Line(val id: Long,
+                var product: Product,
+                var price: Double)
 }
 
 /**
  * A wrapper around an [Entity] which exposes the entity itself, and a count.
  */
-class EntityWithCount<TId, TEntity : Entity<TId>>(override val entity: TEntity,
-                                                  val count: Int) : EntityWrapper<TId, Entity<TId>>
+class EntityWithCount<TId, TEntity : PersistedEntity<TId>>(override val entity: TEntity,
+                                                           val count: Int) : EntityWrapper<TId, PersistedEntity<TId>>

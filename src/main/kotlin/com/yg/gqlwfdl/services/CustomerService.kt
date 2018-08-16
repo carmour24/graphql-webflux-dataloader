@@ -2,6 +2,7 @@ package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
+import com.yg.gqlwfdl.resolvers.Mutation
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
 
@@ -27,6 +28,8 @@ interface CustomerService {
      * client, if the call was made from the context of a client request.
      */
     fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
+
+    fun insert(customers: List<Mutation.CustomerInput>) {}
 }
 
 /**

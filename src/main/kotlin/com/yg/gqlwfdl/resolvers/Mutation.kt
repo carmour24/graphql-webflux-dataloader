@@ -3,6 +3,8 @@ package com.yg.gqlwfdl.resolvers
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.yg.gqlwfdl.TestDataCreator
 import com.yg.gqlwfdl.dataaccess.DBConfig
+import com.yg.gqlwfdl.services.Company
+import com.yg.gqlwfdl.services.Customer
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")
@@ -23,4 +25,15 @@ class Mutation(private val dbConfig: DBConfig) : GraphQLMutationResolver {
         }
         return stringBuilder.toString()
     }
+
+    fun createCustomerData(customer: CustomerInput): Long {
+        return 0
+    }
+
+    data class CustomerInput(
+            val firstName: String,
+            val lastName: String,
+            val company: Long?,
+            val outOfOfficeDelegate: Long?
+    )
 }
