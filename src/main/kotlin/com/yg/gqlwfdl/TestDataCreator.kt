@@ -70,7 +70,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         }
     }
 
-    private fun createOrders(statement: Statement, customers: List<Customer>): List<Long> {
+    private fun createOrders(statement: Statement, customers: List<CustomerEntity>): List<Long> {
         val secondsInAYear = 365 * 24 * 60 * 60
 
         customers.forEach { customer ->
@@ -182,7 +182,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         statement.executeBatch()
     }
 
-    private fun setPrimaryContacts(statement: Statement, companies: List<Company>, customers: List<Customer>) {
+    private fun setPrimaryContacts(statement: Statement, companies: List<Company>, customers: List<CustomerEntity>) {
         // Run through all existing companies, and for each one set their primary contact.
         // There's a 50% chance that this will be null.  If non-null, it will be a randomly chosen user from that company.
         val customersByCompany = customers.groupBy { it.companyId }
@@ -207,13 +207,13 @@ class TestDataCreator(private val dbConfig: DBConfig) {
         statement.executeBatch()
     }
 
-    private fun setOutOfOfficeDelegates(statement: Statement, customers: List<Customer>) {
+    private fun setOutOfOfficeDelegates(statement: Statement, customers: List<CustomerEntity>) {
         // Run through all existing customers, and for each one set their out-of-office delegate.
         // There's a 50% chance that this will be null.  If non-null, it will be a randomly chosen user from the same company.
         val customersByCompany = customers.groupBy { it.companyId }
         val random = Random()
 
-        fun Customer.setOutOfOfficeDelegate() {
+        fun CustomerEntity.setOutOfOfficeDelegate() {
             // Get a list of the other people in the same company as this customer, excluding the customer themselves.
             customersByCompany[this.companyId]?.minusElement(this)?.let {
                 // Choose a random customer from this list and use them as the delegate.
@@ -233,7 +233,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
     }
 
     private fun createCustomers(statement: Statement, companies: List<Company>, pricingDetails: List<PricingDetails>)
-            : List<Customer> {
+            : List<CustomerEntity> {
 
         companies.forEach { company: Company ->
             (1..CUSTOMERS_PER_COMPANY).forEach { userNumber: Int ->
@@ -247,7 +247,7 @@ class TestDataCreator(private val dbConfig: DBConfig) {
 
         return listFromQuery(statement,
                 "select id, first_name, last_name, company, pricing_details from customer order by id") {
-            Customer(it.getLong("id"), it.getString("first_name"), it.getString("last_name"),
+            CustomerEntity(it.getLong("id"), it.getString("first_name"), it.getString("last_name"),
                     it.getLong("company"), it.getLong("pricing_details"))
         }
     }

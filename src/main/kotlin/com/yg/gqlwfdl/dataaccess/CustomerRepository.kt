@@ -6,6 +6,7 @@ import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.services.Customer
+import com.yg.gqlwfdl.services.CustomerID
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
 import org.jooq.DSLContext
@@ -18,7 +19,7 @@ import java.util.concurrent.CompletableFuture
 /**
  * Repository providing access to customer information.
  */
-interface CustomerRepository : EntityRepository<Customer, Long>
+interface CustomerRepository : EntityRepository<Customer, CustomerID>
 
 /**
  * Concrete implementation of [CustomerRepository], which uses a database for its data.
@@ -29,7 +30,7 @@ class DBCustomerRepository(create: DSLContext,
                            recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
                            clientFieldToJoinMapper: ClientFieldToJoinMapper,
                            recordProvider: RecordProvider)
-    : SingleRowDBEntityRepository<Customer, Long, CustomerRecord, QueryInfo<CustomerRecord>>(
+    : SingleRowDBEntityRepository<Customer, CustomerID, CustomerRecord, QueryInfo<CustomerRecord>>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
         CustomerRepository {

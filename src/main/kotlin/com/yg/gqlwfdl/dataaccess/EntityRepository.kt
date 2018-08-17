@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture
 /**
  * Defines a repository responsible for working with [Entity] objects.
  */
-interface EntityRepository<TEntity: Entity<TEntityData, TId>, TEntityData, TId : Any> {
+interface EntityRepository<TEntity: Entity<TId>, TId : Any> {
 
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all the [TEntity] items in the
@@ -31,7 +31,7 @@ interface EntityRepository<TEntity: Entity<TEntityData, TId>, TEntityData, TId :
      * Inserts a [TEntity] to the repository. Returns a [CompletableFuture] object which is resolved when the insert
      * is completed.
      */
-    fun insert(entity: TEntityData): CompletableFuture<TId>
+    fun insert(entity: TEntity): CompletableFuture<TId>
 
     /**
      * Inserts a [List] of entities to the repository. Returns a [List] of [CompletableFuture] objects which are

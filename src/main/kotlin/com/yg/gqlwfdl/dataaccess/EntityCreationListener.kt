@@ -11,5 +11,5 @@ interface EntityCreationListener {
      * Called whenever an entity is created. Typically implementors will do something with the received [entity], such
      * as cache it in a data loader.
      */
-    fun onEntityCreated(entity: Entity<*>)
+    fun onEntityCreated(entity: Entity<*, *>)
 }

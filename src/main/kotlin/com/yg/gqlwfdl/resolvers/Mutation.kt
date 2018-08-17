@@ -3,8 +3,6 @@ package com.yg.gqlwfdl.resolvers
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.yg.gqlwfdl.TestDataCreator
 import com.yg.gqlwfdl.dataaccess.DBConfig
-import com.yg.gqlwfdl.services.Company
-import com.yg.gqlwfdl.services.Customer
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")

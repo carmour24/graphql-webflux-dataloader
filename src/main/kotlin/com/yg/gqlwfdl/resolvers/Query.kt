@@ -22,13 +22,13 @@ class Query(private val customerService: CustomerService,
     /**
      * Gets all customers in the system.
      */
-    fun customers(env: DataFetchingEnvironment): CompletableFuture<List<Customer>> =
+    fun customers(env: DataFetchingEnvironment): CompletableFuture<List<CustomerEntity>> =
             withLogging("getting all customers") { customerService.findAll(env.toEntityRequestInfo()) }
 
     /**
      * Gets all customers with the passed in IDs.
      */
-    fun customersByIds(ids: List<Long>, env: DataFetchingEnvironment): CompletableFuture<List<Customer>> =
+    fun customersByIds(ids: List<Long>, env: DataFetchingEnvironment): CompletableFuture<List<CustomerEntity>> =
             withLogging("getting customers with IDs $ids") { customerService.findByIds(ids, env.toEntityRequestInfo()) }
 
     /**

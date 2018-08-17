@@ -6,7 +6,7 @@ import java.util.concurrent.CompletionStage
  * Implementation of [ContextAwareDataLoader] which fetches/caches items, then groups them by some property of theirs,
  * defined by the `keySelector` parameter, exposing the grouped items as a list.
  *
- * For example, say a Customer object has zero or more related Order objects: this data loader can be used to fetch all
+ * For example, say a CustomerEntity object has zero or more related Order objects: this data loader can be used to fetch all
  * orders for a set of customers, then expose a list of orders for each of those customers (returning null for those
  * customers which had no orders).
  *

@@ -36,7 +36,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
                     companyService.findByIds(ids, requestInfo)
                 }
 
-                DataLoaderType.CUSTOMER -> createSimpleDataLoader<Long, Customer>(
+                DataLoaderType.CUSTOMER -> createSimpleDataLoader<Long, CustomerEntity>(
                         requestContext, { it.id }) { ids, requestInfo ->
                     customerService.findByIds(ids, requestInfo)
                 }
@@ -146,10 +146,10 @@ class DataLoaderFactory(private val customerService: CustomerService,
 // Below are the extension methods on RequestContext to provide easy access to all the data loaders created above.
 
 /**
- * Gets the data loader for caching/loading customers ([Customer] objects).
+ * Gets the data loader for caching/loading customers ([CustomerEntity] objects).
  */
 val RequestContext.customerDataLoader
-    get() = this.dataLoaderRegistry.getDataLoader<Long, Customer>(DataLoaderType.CUSTOMER.registryKey) as SimpleDataLoader
+    get() = this.dataLoaderRegistry.getDataLoader<Long, CustomerEntity>(DataLoaderType.CUSTOMER.registryKey) as SimpleDataLoader
 
 /**
  * Gets the data loader for caching/loading companies ([Company] objects).
@@ -190,7 +190,7 @@ val RequestContext.orderDataLoader
 
 
 /**
- * Gets the data loader for caching/loading [Order]s which belong to specific [Customer]s
+ * Gets the data loader for caching/loading [Order]s which belong to specific [CustomerEntity]s
  */
 val RequestContext.customerOrderDataLoader
     get() = this.dataLoaderRegistry.getDataLoader<Long, List<Order>>(DataLoaderType.CUSTOMER_ORDER.registryKey) as GroupingDataLoader
