@@ -13,13 +13,11 @@ import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.Table
 import org.springframework.stereotype.Repository
-import java.util.concurrent.CompletableFuture
-
 
 /**
  * Repository providing access to customer information.
  */
-interface CustomerRepository : EntityRepository<Customer, CustomerID>
+interface CustomerRepository : EntityRepository<Customer, CustomerID>, MutatingRepository<Customer, CustomerID>
 
 /**
  * Concrete implementation of [CustomerRepository], which uses a database for its data.
@@ -33,14 +31,16 @@ class DBCustomerRepository(create: DSLContext,
     : SingleRowDBEntityRepository<Customer, CustomerID, CustomerRecord, QueryInfo<CustomerRecord>>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
+        MutatingRepository<Customer, CustomerID> by DBMutatingEntityRepository(
+                create,
+                connectionPool,
+                table = CUSTOMER
+        ),
         CustomerRepository {
-//    override fun insert(entities: List<Customer>): List<CompletableFuture<Long>> {
-//        entities
-//    }
-
 
     override fun getEntity(queryInfo: QueryInfo<CustomerRecord>, row: Row) = row.toCustomerRecord(queryInfo).toEntity()
 }
+
 
 /**
  * Converts a [CustomerRecord] to its corresponding entity, a [Customer].

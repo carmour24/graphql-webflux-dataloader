@@ -32,24 +32,24 @@ interface EntityWrapper<TId, TEntity : Entity<TId>> : Entity<TId> {
         get() = entity.id
 }
 
-typealias CustomerID = UUID
-typealias CompanyID = UUID
-typealias CompanyPartnershipID = UUID
-typealias VatRateID = UUID
-typealias DiscountRateID = UUID
-typealias PaymentMethodID = UUID
-typealias PricingDetailsID = UUID
-typealias ProductID = UUID
-typealias OrderID = UUID
-typealias LineID = UUID
+typealias CustomerID = Long
+typealias CompanyID = Long
+typealias CompanyPartnershipID = Long
+typealias VatRateID = Long
+typealias DiscountRateID = Long
+typealias PaymentMethodID = Long
+typealias PricingDetailsID = Long
+typealias ProductID = Long
+typealias OrderID = Long
+typealias LineID = Long
 
 data class Customer(
         override val id: CustomerID,
         var firstName: String,
         var lastName: String,
         var companyId: Long,
-        var pricingDetailsId: Long,
-        var outOfOfficeDelegate: Long?
+        var pricingDetailsId: PricingDetailsID,
+        var outOfOfficeDelegate: CustomerID? = null
 ) : Entity<CustomerID>
 
 
@@ -57,8 +57,8 @@ data class Company(
         override val id: CompanyID,
         var name: String,
         var address: String,
-        var pricingDetailsId: Long,
-        var primaryContact: Long? = null) : Entity<CompanyID>
+        var pricingDetailsId: PricingDetailsID,
+        var primaryContact: CustomerID? = null) : Entity<CompanyID>
 
 data class CompanyPartnership(
         override val id: CompanyPartnershipID,
@@ -94,23 +94,23 @@ data class Product(
         override val id: ProductID,
         var description: String,
         var price: Double,
-        var companyId: Long
+        var companyId: CompanyID
 ) : Entity<ProductID>
 
 data class Order(
         override val id: OrderID,
-        var customer: Customer,
+        var customerId: CustomerID,
         var date: OffsetDateTime,
         var deliveryAddress: String,
         val lines: List<Line>
-) : Entity<OrderID>
+) : Entity<OrderID> {
 
-data class Line(
-        override val id: LineID,
-        var product: Product,
-        var price: Double
-) : Entity<LineID>
-
+    data class Line(
+            override val id: LineID,
+            var product: Product,
+            var price: Double
+    ) : Entity<LineID>
+}
 
 /**
  * A wrapper around an [Entity] which exposes the entity itself, and a count.

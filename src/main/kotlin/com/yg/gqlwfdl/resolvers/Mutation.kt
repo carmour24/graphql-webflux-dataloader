@@ -2,6 +2,7 @@ package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.yg.gqlwfdl.TestDataCreator
+import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import kotlin.system.measureTimeMillis
 
@@ -9,7 +10,7 @@ import kotlin.system.measureTimeMillis
 /**
  * Class containing the mutations (e.g. inserts, updates) invoked by GraphQL requests.
  */
-class Mutation(private val dbConfig: DBConfig) : GraphQLMutationResolver {
+class Mutation(private val dbConfig: DBConfig, val customerRepository: CustomerRepository) : GraphQLMutationResolver {
 
     /**
      * Deletes all existing data and populates the database with a bunch of randomly generated test data.
@@ -25,7 +26,8 @@ class Mutation(private val dbConfig: DBConfig) : GraphQLMutationResolver {
     }
 
     fun createCustomerData(customer: CustomerInput): Long {
-        return 0
+        customerRepository.getNextId()
+        customerRepository.insert()
     }
 
     data class CustomerInput(

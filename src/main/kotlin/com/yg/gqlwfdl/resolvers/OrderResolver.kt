@@ -3,7 +3,7 @@ package com.yg.gqlwfdl.resolvers
 import com.coxautodev.graphql.tools.GraphQLResolver
 import com.yg.gqlwfdl.dataloaders.customerDataLoader
 import com.yg.gqlwfdl.requestContext
-import com.yg.gqlwfdl.services.CustomerEntity
+import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.Order
 import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
@@ -20,6 +20,6 @@ class OrderResolver : DataLoadingResolver(), GraphQLResolver<Order> {
     /**
      * Gets a [CompletableFuture] which, when completed, will return the primary contact for the passed in order.
      */
-    fun customer(order: Order, env: DataFetchingEnvironment): CompletableFuture<CustomerEntity> =
+    fun customer(order: Order, env: DataFetchingEnvironment): CompletableFuture<Customer> =
             prepareDataLoader(env) { env.requestContext.customerDataLoader }.load(order.customerId)
 }

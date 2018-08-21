@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture
 abstract class DBEntityRepository<
         TEntity : Entity<TId>, TId : Any, TRecord : Record, TQueryInfo : QueryInfo<TRecord>>(
         protected val create: DSLContext,
-        private val connectionPool: PgPool,
+        protected val connectionPool: PgPool,
         protected val recordToEntityConverterProvider: JoinedRecordToEntityConverterProvider,
         private val clientFieldToJoinMapper: ClientFieldToJoinMapper,
         protected val recordProvider: RecordProvider,

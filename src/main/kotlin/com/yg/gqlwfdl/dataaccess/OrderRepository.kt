@@ -8,7 +8,7 @@ import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.dataloaders.customerOrderDataLoader
-import com.yg.gqlwfdl.services.CustomerEntity
+import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.Order
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
@@ -18,6 +18,7 @@ import org.jooq.Record
 import org.jooq.Table
 import org.springframework.stereotype.Repository
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 /**
  * Repository providing access to order information.
@@ -25,7 +26,7 @@ import java.util.concurrent.CompletableFuture
 interface OrderRepository : EntityRepository<Order, Long> {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Order] objects belonging
-     * to [CustomerEntity]s with the passed in [customerIds].
+     * to [Customer]s with the passed in [customerIds].
      *
      * @param requestInfo Information about the request, such as the fields of the entity which were requested by the
      * client, if the call was made from the context of a client request.

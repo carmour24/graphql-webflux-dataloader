@@ -13,6 +13,7 @@ import org.jooq.Record
 import org.jooq.Table
 import org.jooq.TableField
 import org.springframework.stereotype.Repository
+import java.util.concurrent.CompletionStage
 
 /**
  * Repository providing access to company partnership information.
@@ -32,7 +33,6 @@ class DBCompanyPartnershipRepository(create: DSLContext,
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         COMPANY_PARTNERSHIP, COMPANY_PARTNERSHIP.ID),
         CompanyPartnershipRepository {
-
     override fun getQueryInfo(table: Table<CompanyPartnershipRecord>) = CompanyPartnershipQueryInfo(table)
 
     override fun getEntity(queryInfo: CompanyPartnershipQueryInfo, row: Row): CompanyPartnership {
