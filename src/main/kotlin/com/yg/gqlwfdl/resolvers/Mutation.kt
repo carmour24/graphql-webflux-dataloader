@@ -2,15 +2,18 @@ package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.yg.gqlwfdl.TestDataCreator
-import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.dataaccess.DBConfig
+import com.yg.gqlwfdl.services.Customer
+import com.yg.gqlwfdl.services.CustomerID
+import com.yg.gqlwfdl.services.CustomerService
+import java.util.concurrent.CompletionStage
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")
 /**
  * Class containing the mutations (e.g. inserts, updates) invoked by GraphQL requests.
  */
-class Mutation(private val dbConfig: DBConfig, val customerRepository: CustomerRepository) : GraphQLMutationResolver {
+class Mutation(private val dbConfig: DBConfig, private val customerService: CustomerService) : GraphQLMutationResolver {
 
     /**
      * Deletes all existing data and populates the database with a bunch of randomly generated test data.
@@ -25,15 +28,25 @@ class Mutation(private val dbConfig: DBConfig, val customerRepository: CustomerR
         return stringBuilder.toString()
     }
 
-    fun createCustomerData(customer: CustomerInput): Long {
-        customerRepository.getNextId()
-        customerRepository.insert()
+    fun createCustomer(customerInput: CustomerInput): CompletionStage<CustomerID> {
+        val customer = with(customerInput) {
+            Customer(
+                    id = null,
+                    firstName = firstName,
+                    lastName = lastName,
+                    companyId = company,
+                    pricingDetailsId = pricingDetails,
+                    outOfOfficeDelegate = outOfOfficeDelegate
+            )
+        }
+        return customerService.insert(listOf(customer)).first()
     }
 
     data class CustomerInput(
             val firstName: String,
             val lastName: String,
-            val company: Long?,
+            val company: Long,
+            val pricingDetails: Long,
             val outOfOfficeDelegate: Long?
     )
 }

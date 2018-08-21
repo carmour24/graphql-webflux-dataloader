@@ -5,6 +5,7 @@ import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.resolvers.Mutation
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 
 /**
  * Service for handling functionality related to customers. Communicates with the data access layer to get the data
@@ -29,7 +30,7 @@ interface CustomerService {
      */
     fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
 
-    fun insert(customers: List<Mutation.CustomerInput>) {}
+    fun insert(customers: List<Customer>): List<CompletionStage<CustomerID>>
 }
 
 /**
@@ -38,6 +39,7 @@ interface CustomerService {
 @Service
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
+    override fun insert(customers: List<Customer>): List<CompletionStage<CustomerID>> = customerRepository.insert(customers)
 
     override fun findAll(requestInfo: EntityRequestInfo?) = customerRepository.findAll(requestInfo)
 

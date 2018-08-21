@@ -140,7 +140,7 @@ private fun buildSchema(customerService: CustomerService,
                     PricingDetailsResolver(),
                     ProductResolver(),
                     OrderResolver(),
-                    Mutation(dbConfig))
+                    Mutation(dbConfig, customerService))
             .dictionary("OrderLine", Order.Line::class.java)
             .options(SchemaParserOptions.newOptions()
                     .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))

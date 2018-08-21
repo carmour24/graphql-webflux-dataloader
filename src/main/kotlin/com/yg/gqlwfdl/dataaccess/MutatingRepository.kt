@@ -1,6 +1,5 @@
 package com.yg.gqlwfdl.dataaccess
 
-import com.yg.gqlwfdl.dataaccess.db.tables.records.CustomerRecord
 import com.yg.gqlwfdl.services.Entity
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Tuple
@@ -10,8 +9,6 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.reflect.KCallable
-import kotlin.reflect.KClass
-import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
 
@@ -35,8 +32,6 @@ interface MutatingRepository<TEntity, TId> {
      * each resolved when their respective insert is completed.
      */
     fun insert(entities: List<TEntity>): List<CompletionStage<TId>>
-
-    fun getNextIds(count: Int = 1): TId
 }
 
 open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : TableRecord<TRecord>>(
@@ -49,19 +44,25 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
     }
 
     override fun insert(entities: List<TEntity>): List<CompletionStage<TId>> {
-        val insertQueryInfo = create.insertQuery(table)
-        insertQueryInfo.setReturning(table.identity)
+        // Need to exclude ID field from fieldList as we are not inserting this but retrieving it.
+        val fieldList = table.fields().filter { it != table.identity.field }.toList()
+        val insertQueryInfo = create
+                .insertInto(table)
+                .columns(fieldList)
 
-        val bindParams = insertQueryInfo.params.map { param ->
-            Triple<String, DataType<*>, KProperty1<TEntity, *>?>(param.key,
-                    param.value.dataType,
-                    entities.first().javaClass.kotlin.memberProperties.find { it.name == param.key })
+//        val insertQueryInfo = create.insertQuery(table)
+//        insertQueryInfo.setReturning(table.identity)
+
+        val bindParams = fieldList.map { field ->
+            Triple<String, DataType<*>, KProperty1<TEntity, *>?>(field.name,
+                    field.dataType,
+                    entities.first().javaClass.kotlin.memberProperties.find { it.name == field.name })
         }
         val assignableFrom: (Class<*>, Class<*>) -> Boolean = { instanceClass, clazz ->
             instanceClass.isAssignableFrom(clazz)
         }
 
-        val futures = emptyList<Pair<CompletableFuture<*>, KCallable<*>>>().toMutableList()
+        val futures = emptyList<CompletableFuture<*>>().toMutableList()
 
         val batch = entities.map { entity ->
             val batchTuple = Tuple.tuple()
@@ -70,7 +71,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
                 when {
                     assignableFrom(instanceClass, Int::class.java) -> {
                         val future = CompletableFuture<Int>()
-                        futures.add(Pair(future, (i{ future.complete() }))
+                        futures.add(future)
                         batchTuple.addInteger(property?.invoke(entity) as Int)
                     }
                     assignableFrom(instanceClass, Date::class.java) -> {
@@ -95,17 +96,24 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             batchTuple
         }
 
+        // Modify the current query to return the ID field for the inserted records
+        val query = insertQueryInfo.returning(table.identity.field)
+
         connectionPool.getConnection {
             if (it.failed()) {
                 println("Failed to get connection ${it.failed()}")
                 throw it.cause()
             }
 
-            connectionPool.preparedBatch(insertQueryInfo.sql, batch) { asyncResultRowSet ->
+            connectionPool.preparedBatch(query.sql, batch) { asyncResultRowSet ->
                 asyncResultRowSet.result().mapIndexed { index, row ->
                     val instanceClass = table.identity.field.type
-                    val returnedId = when {
-                        assignableFrom(instanceClass, Long::class.java) -> futures[index].complete(row.getLong(0))
+                    when {
+                        assignableFrom(instanceClass, Long::class.java) -> {
+
+                            val future = futures[index] as? CompletableFuture<Long> ?: throw Exception("Type system is rubbish")
+                            future.complete(row.getLong(0))
+                        }
                         else -> row.getString(0) as Any
                     }
 
@@ -114,9 +122,8 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             }
         }
 
-        return futures
-    }
-
-    override fun getNextIds(count: Int): TId {
+        return futures.map { it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish") }.toList()
     }
 }
+
+private fun <T> complete(future: CompletableFuture<T>, value: T) = future.complete(value)

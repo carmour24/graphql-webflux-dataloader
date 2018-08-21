@@ -12,7 +12,7 @@ interface Entity<TId> {
     /**
      * The unique identifier of this entity.
      */
-    val id: TId
+    val id: TId?
 }
 
 /**
@@ -28,7 +28,7 @@ interface EntityWrapper<TId, TEntity : Entity<TId>> : Entity<TId> {
     /**
      * The ID of this entity: defaults to the ID of the wrapped entity itself.
      */
-    override val id: TId
+    override val id: TId?
         get() = entity.id
 }
 
@@ -44,7 +44,7 @@ typealias OrderID = Long
 typealias LineID = Long
 
 data class Customer(
-        override val id: CustomerID,
+        override val id: CustomerID?,
         var firstName: String,
         var lastName: String,
         var companyId: Long,

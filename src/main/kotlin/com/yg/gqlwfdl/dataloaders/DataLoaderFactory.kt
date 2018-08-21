@@ -37,7 +37,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
                 }
 
                 DataLoaderType.CUSTOMER -> createSimpleDataLoader<Long, Customer>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     customerService.findByIds(ids, requestInfo)
                 }
 

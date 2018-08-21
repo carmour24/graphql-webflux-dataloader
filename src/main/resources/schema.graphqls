@@ -61,10 +61,11 @@ type Query {
   ordersByIds(ids: [Int]!): [Order]
 }
 
-type CustomerInput {
+input CustomerInput {
   firstName: String!
   lastName: String!
   company: ID!
+  pricingDetails: ID!
   outOfOfficeDelegate: ID
 }
 
