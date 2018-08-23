@@ -4,11 +4,13 @@ import com.yg.gqlwfdl.services.Entity
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Tuple
 import org.jooq.*
+import org.jooq.conf.ParamType
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.reflect.KCallable
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
 
@@ -50,45 +52,59 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
                 .insertInto(table)
                 .columns(fieldList)
 
-//        val insertQueryInfo = create.insertQuery(table)
-//        insertQueryInfo.setReturning(table.identity)
+        for (entity in entities) {
+            //  Try to use an array of empty strings for the values as we'll be replacing those.
+            insertQueryInfo.values(List(fieldList.size) { "" })
+        }
 
+        // Map fields to properties. Using a mutable list and removing the found entries so on each iteration of
+        // searching for a field we are only searching through properties which have not previously been identified.
+        // TODO: Maybe something like associateby would be more performant/readable.
+        val unidentifiedEntityProperties = entities.first().javaClass.kotlin.memberProperties.toMutableList()
         val bindParams = fieldList.map { field ->
-            Triple<String, DataType<*>, KProperty1<TEntity, *>?>(field.name,
-                    field.dataType,
-                    entities.first().javaClass.kotlin.memberProperties.find { it.name == field.name })
-        }
-        val assignableFrom: (Class<*>, Class<*>) -> Boolean = { instanceClass, clazz ->
-            instanceClass.isAssignableFrom(clazz)
+            val normalizedFieldName = field.name.replace("_", "").toLowerCase()
+            val property = unidentifiedEntityProperties.find {
+                // TODO: Properly map properties to fields somewhere, this mapping of ignoring case and removing
+                // _ from field names is OK in the interim but needs a reasonable solution.
+                val normalizedPropName = it.name.toLowerCase()
+                val found = (normalizedPropName == normalizedFieldName)
+                        .or(normalizedPropName.endsWith("id") && normalizedPropName.substring(0,
+                                normalizedPropName.length - 2) == normalizedFieldName)
+                found
+            }
+
+            unidentifiedEntityProperties.remove(property)
+
+            Triple<String, DataType<*>, KProperty1<TEntity, *>?>(field.name, field.dataType, property)
         }
 
-        val futures = emptyList<CompletableFuture<*>>().toMutableList()
+        val assignableFrom: (Class<*>, KClass<*>) -> Boolean = { instanceClass, clazz ->
+            instanceClass.kotlin == clazz
+        }
+
+        val futures = Array(size = entities.size) {
+            CompletableFuture<TId>()
+        }
 
         val batch = entities.map { entity ->
             val batchTuple = Tuple.tuple()
 
             bindParams.map { it.second.type to it.third }.forEach { (instanceClass, property) ->
                 when {
-                    assignableFrom(instanceClass, Int::class.java) -> {
-                        val future = CompletableFuture<Int>()
-                        futures.add(future)
-                        batchTuple.addInteger(property?.invoke(entity) as Int)
+                    assignableFrom(instanceClass, Int::class) -> {
+                        batchTuple.addInteger(property?.invoke(entity) as Int?)
                     }
-                    assignableFrom(instanceClass, Date::class.java) -> {
-                        futures.add(CompletableFuture<LocalDate>())
-                        batchTuple.addLocalDate(property?.invoke(entity) as LocalDate)
+                    assignableFrom(instanceClass, Date::class) -> {
+                        batchTuple.addLocalDate(property?.invoke(entity) as LocalDate?)
                     }
-                    assignableFrom(instanceClass, Long::class.java) -> {
-                        futures.add(CompletableFuture<Long>())
-                        batchTuple.addLong(property?.invoke(entity) as Long)
+                    assignableFrom(instanceClass, Long::class) -> {
+                        batchTuple.addLong(property?.invoke(entity) as Long?)
                     }
-                    assignableFrom(instanceClass, Double::class.java) -> {
-                        futures.add(CompletableFuture<Double>())
-                        batchTuple.addDouble(property?.invoke(entity) as Double)
+                    assignableFrom(instanceClass, Double::class) -> {
+                        batchTuple.addDouble(property?.invoke(entity) as Double?)
                     }
-                    assignableFrom(instanceClass, String::class.java) -> {
-                        futures.add(CompletableFuture<String>())
-                        batchTuple.addString(property?.invoke(entity) as String)
+                    assignableFrom(instanceClass, String::class) -> {
+                        batchTuple.addString(property?.invoke(entity) as String?)
                     }
                 }
             }
@@ -105,25 +121,44 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
                 throw it.cause()
             }
 
-            connectionPool.preparedBatch(query.sql, batch) { asyncResultRowSet ->
-                asyncResultRowSet.result().mapIndexed { index, row ->
-                    val instanceClass = table.identity.field.type
-                    when {
-                        assignableFrom(instanceClass, Long::class.java) -> {
+            val sql=query.getSqlWithNumberedParams(fieldList.size)
+            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
+                if (asyncResultRowSet.failed()) {
+                    println(asyncResultRowSet.cause())
+                    throw asyncResultRowSet.cause()
+                }
 
-                            val future = futures[index] as? CompletableFuture<Long> ?: throw Exception("Type system is rubbish")
-                            future.complete(row.getLong(0))
+                val result = asyncResultRowSet.result()
+                result.forEachIndexed { index, row ->
+                    println("Completing futures[$index]")
+                    when(table.identity.field.type.kotlin)  {
+                        Long::class -> {
+
+                            val future = futures[index] as CompletableFuture<Long>
+                            val indexValue = row.getLong(0)
+                            println("completing a long: $indexValue")
+                            future.complete(indexValue)
+                        }
+                        UUID::class -> {
+                            val future = futures[index] as CompletableFuture<UUID>
+                            future.complete(row.getUUID(0))
                         }
                         else -> row.getString(0) as Any
                     }
-
-
                 }
             }
         }
 
-        return futures.map { it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish") }.toList()
+        return futures.map {
+            it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish")
+        }.toList()
     }
 }
 
-private fun <T> complete(future: CompletableFuture<T>, value: T) = future.complete(value)
+// TODO: Replace with tested version from Unit Of Work project.
+fun Query.getSqlWithNumberedParams(fieldCount: Int): String {
+    var index = 0
+    return this.getSQL(ParamType.NAMED).replace(Regex("(?:\\:(\\d+))")) {
+        "\$${(index++ % fieldCount) + 1}"
+    }
+}

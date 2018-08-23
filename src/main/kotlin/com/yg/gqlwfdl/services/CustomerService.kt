@@ -5,6 +5,7 @@ import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.resolvers.Mutation
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletableFuture.allOf
 import java.util.concurrent.CompletionStage
 
 /**
@@ -30,7 +31,7 @@ interface CustomerService {
      */
     fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
 
-    fun insert(customers: List<Customer>): List<CompletionStage<CustomerID>>
+    fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>>
 }
 
 /**
@@ -39,7 +40,15 @@ interface CustomerService {
 @Service
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
-    override fun insert(customers: List<Customer>): List<CompletionStage<CustomerID>> = customerRepository.insert(customers)
+    override fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>> {
+        val customerFutureList = customerRepository.insert(customers).map { it.toCompletableFuture() }
+        val customerIdListFuture = CompletableFuture<List<CustomerID>>()
+
+        allOf(*customerFutureList.toTypedArray()).thenAccept {
+            customerIdListFuture.complete(customerFutureList.map { it.get() })
+        }
+        return customerIdListFuture
+    }
 
     override fun findAll(requestInfo: EntityRequestInfo?) = customerRepository.findAll(requestInfo)
 

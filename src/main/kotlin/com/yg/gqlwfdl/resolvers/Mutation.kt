@@ -6,6 +6,7 @@ import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.CustomerID
 import com.yg.gqlwfdl.services.CustomerService
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.system.measureTimeMillis
 
@@ -39,7 +40,24 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
                     outOfOfficeDelegate = outOfOfficeDelegate
             )
         }
-        return customerService.insert(listOf(customer)).first()
+        return customerService.insert(listOf(customer)).thenApply { it.first() }
+    }
+
+    fun createCustomers(customersInput: List<CustomerInput>): CompletionStage<List<CustomerID>> {
+        val customers = customersInput.map {
+            with(it) {
+                Customer(
+                        id = null,
+                        firstName = firstName,
+                        lastName = lastName,
+                        companyId = company,
+                        pricingDetailsId = pricingDetails,
+                        outOfOfficeDelegate = outOfOfficeDelegate
+                )
+            }
+        }
+
+        return customerService.insert(customers)
     }
 
     data class CustomerInput(
