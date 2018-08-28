@@ -9,7 +9,9 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import kotlin.reflect.KCallable
+import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.reflect
 
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
@@ -34,6 +36,10 @@ interface MutatingRepository<TEntity, TId> {
      * each resolved when their respective insert is completed.
      */
     fun insert(entities: List<TEntity>): List<CompletionStage<TId>>
+
+    fun update(entity: TEntity): CompletionStage<TEntity>
+
+    fun update(entities: List<TEntity>): List<CompletionStage<TEntity>>
 }
 
 /**
@@ -52,6 +58,69 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
 ) : MutatingRepository<TEntity, TId> {
+    override fun update(entity: TEntity): CompletionStage<TEntity> = update(listOf(entity)).first()
+
+    override fun update(entities: List<TEntity>): List<CompletionStage<TEntity>> {
+        val fieldList = table.fields().toList()
+
+        val (updateQueryInfo, batch) = queryForEntities(entities, fieldList) { fields ->
+            val insertQueryInfo = create
+                    .update(table)
+                    .set(fields.associate { it to "" })
+
+            // Use an array of empty strings for the values of the query at this point. These will be replaced during
+            // execution with the proper values from the batch. This is just used to generate the correct query in Jooq.
+            // Not specifying values will result in default values being inserted, rather than the query being generated
+            // with the proper param placeholder list to be replaced during execution.
+//            insertQueryInfo.values(List(fieldList.size) { "" })
+            insertQueryInfo
+        }
+
+        // Modify the current query to return the ID field for the inserted records
+        val query = updateQueryInfo.returning(fieldList)
+
+        // Array of CompletableFuture instances to be resolved in order with the updated contents of the entities passed
+        // in to be updated. This allows us to ensure that the entities are as expected.
+        val futures = Array(size = entities.size) { CompletableFuture<TEntity>() }
+
+        connectionPool.getConnection {
+            if (it.failed()) {
+                println("Failed to get connection ${it.failed()}")
+                throw it.cause()
+            }
+
+            val sql = query.getSqlWithNumberedParams(fieldList.size)
+            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
+                if (asyncResultRowSet.failed()) {
+                    println(asyncResultRowSet.cause())
+                    throw asyncResultRowSet.cause()
+                }
+
+                val mutableEntityList = entities.toMutableList()
+                val mappings = tableFieldMapper.mapEntityPropertiesToTableFields(entities.first().javaClass.kotlin.memberProperties, fieldList)
+
+                // Iterate over each result set, there should be one per entity we insert.
+                asyncResultRowSet.forEachIndexed { index, result ->
+                    println("Rowset count = ${result.value().size()}")
+                    val row = result.value().first()
+                    val foundIndex = mutableEntityList.indexOfFirst { it.id == row.getValue(table.identity.field.name) }
+                    println("index is equal to found index: ${index == foundIndex}")
+
+                    val entity = mutableEntityList.removeAt(foundIndex)
+
+                    mappings.forEachIndexed { index, property ->
+                        val value = row.getValue(fieldList[index].name)
+                        if (property is KMutableProperty<*>) {
+                            property.setter.call(entity, value)
+                        }
+                    }
+
+                    futures[index].complete(entity)
+                }
+            }
+        }
+    }
+
     override fun insert(entity: TEntity): CompletionStage<TId> {
         return insert(listOf(entity)).first()
     }
@@ -59,44 +128,29 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
     override fun insert(entities: List<TEntity>): List<CompletionStage<TId>> {
         // Need to exclude ID field from fieldList as we are not inserting this but retrieving it.
         val fieldList = table.fields().filter { it != table.identity.field }.toList()
-        val insertQueryInfo = create
-                .insertInto(table)
-                .columns(fieldList)
 
-        // Use an array of empty strings for the values of the query at this point. These will be replaced during
-        // execution with the proper values from the batch. This is just used to generate the correct query in Jooq.
-        // Not specifying values will result in default values being inserted, rather than the query being generated
-        // with the proper param placeholder list to be replaced during execution.
-        insertQueryInfo.values(List(fieldList.size) { "" })
+        val (insertQueryInfo, batch) = queryForEntities(entities, fieldList = fieldList) { fieldList ->
+            val insertQueryInfo = create
+                    .insertInto(table)
+                    .columns(fieldList)
 
-        // Map database table fields to entity properties.
-        val memberProperties = entities.first().javaClass.kotlin.memberProperties
-        val bindProperties =  tableFieldMapper.mapEntityPropertiesToTableFields(memberProperties, fieldList)
-
-        // Array of CompletableFuture instances to be resolved in order with the IDs of the inserted entities.
-        val futures = Array(size = entities.size) { CompletableFuture<TId>() }
-
-        // Map the entities to a batch of tuples representing each entity. The order of the entity properties added
-        // to the tuple is decided by the bind values extracted from the Jooq query object and so will be married up
-        // with the query parameters properly at execution.
-        val batch = entities.map { entity ->
-            val batchTuple = Tuple.tuple()
-            // Run through the list of properties mapped by convention to bind values and add the values for these to
-            // the tuple to be passed on batch execution. Tuple represents a single entity and a row to be
-            // inserted/udpated.
-            bindProperties.forEach {
-                batchTuple.addValue(it?.invoke(entity))
-            }
-            batchTuple
+            // Use an array of empty strings for the values of the query at this point. These will be replaced during
+            // execution with the proper values from the batch. This is just used to generate the correct query in Jooq.
+            // Not specifying values will result in default values being inserted, rather than the query being generated
+            // with the proper param placeholder list to be replaced during execution.
+            insertQueryInfo.values(List(fieldList.size) { "" })
         }
 
         // Modify the current query to return the ID field for the inserted records
         val query = insertQueryInfo.returning(table.identity.field)
 
-        connectionPool.getConnection {
-            if (it.failed()) {
-                println("Failed to get connection ${it.failed()}")
-                throw it.cause()
+        // Array of CompletableFuture instances to be resolved in order with the IDs of the inserted entities.
+        val futures = Array(size = entities.size) { CompletableFuture<TId>() }
+
+        connectionPool.getConnection { asyncResult ->
+            if (asyncResult.failed()) {
+                println("Failed to get connection ${asyncResult.failed()}")
+                throw asyncResult.cause()
             }
 
             val sql = query.getSqlWithNumberedParams(fieldList.size)
@@ -137,5 +191,30 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         return futures.map {
             it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish")
         }.toList()
+    }
+
+    protected fun <TQuery : Query> queryForEntities(entities: List<TEntity>, fieldList: List<Field<*>>, createQuery: (List<Field<*>>) -> TQuery): Pair<TQuery, List<Tuple>> {
+        val queryInfo = createQuery(fieldList)
+
+
+        // Map database table fields to entity properties.
+        val memberProperties = entities.first().javaClass.kotlin.memberProperties
+        val bindProperties = tableFieldMapper.mapEntityPropertiesToTableFields(memberProperties, fieldList)
+
+
+        // Map the entities to a batch of tuples representing each entity. The order of the entity properties added
+        // to the tuple is decided by the bind values extracted from the Jooq query object and so will be married up
+        // with the query parameters properly at execution.
+        val batch = entities.map { entity ->
+            val batchTuple = Tuple.tuple()
+            // Run through the list of properties mapped by convention to bind values and add the values for these to
+            // the tuple to be passed on batch execution. Tuple represents a single entity and a row to be
+            // inserted/udpated.
+            bindProperties.forEach {
+                batchTuple.addValue(it?.invoke(entity))
+            }
+            batchTuple
+        }
+        return (queryInfo to batch)
     }
 }

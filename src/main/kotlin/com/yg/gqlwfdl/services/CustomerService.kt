@@ -32,6 +32,10 @@ interface CustomerService {
     fun findByIds(ids: List<Long>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<Customer>>
 
     fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>>
+
+    fun insert(customer: Customer): CompletionStage<CustomerID>
+
+    fun update(customer: Customer): CompletionStage<Customer>
 }
 
 /**
@@ -40,6 +44,10 @@ interface CustomerService {
 @Service
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
+    override fun update(customer: Customer) = customerRepository.update(customer)
+
+    override fun insert(customer: Customer) = customerRepository.insert(customer)
+
     override fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>> {
         val customerFutureList = customerRepository.insert(customers).map { it.toCompletableFuture() }
         val customerIdListFuture = CompletableFuture<List<CustomerID>>()

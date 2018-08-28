@@ -29,6 +29,20 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         return stringBuilder.toString()
     }
 
+    fun updateCustomer(customerInput: CustomerInput): CompletionStage<Customer> {
+        val customer = with(customerInput) {
+            Customer(
+                    id = Id,
+                    firstName = firstName,
+                    lastName = lastName,
+                    companyId = company,
+                    pricingDetailsId = pricingDetails,
+                    outOfOfficeDelegate = outOfOfficeDelegate
+            )
+        }
+        return customerService.update(customer)
+    }
+
     fun createCustomer(customerInput: CustomerInput): CompletionStage<CustomerID> {
         val customer = with(customerInput) {
             Customer(
@@ -40,7 +54,7 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
                     outOfOfficeDelegate = outOfOfficeDelegate
             )
         }
-        return customerService.insert(listOf(customer)).thenApply { it.first() }
+        return customerService.insert(customer)
     }
 
     fun createCustomers(customersInput: List<CustomerInput>): CompletionStage<List<CustomerID>> {
