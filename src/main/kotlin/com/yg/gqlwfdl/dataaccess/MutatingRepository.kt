@@ -2,16 +2,20 @@ package com.yg.gqlwfdl.dataaccess
 
 import com.yg.gqlwfdl.services.Entity
 import io.reactiverse.pgclient.PgPool
+import io.reactiverse.pgclient.PgRowSet
 import io.reactiverse.pgclient.Row
 import io.reactiverse.pgclient.Tuple
+import io.vertx.core.AsyncResult
 import org.jooq.*
+import org.jooq.impl.DSL.field
 import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.reflect.KCallable
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.jvm.reflect
 
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
@@ -58,67 +62,63 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
 ) : MutatingRepository<TEntity, TId> {
+    private val logger: Logger? = Logger.getLogger(this.javaClass.name)
+
     override fun update(entity: TEntity): CompletionStage<TEntity> = update(listOf(entity)).first()
 
     override fun update(entities: List<TEntity>): List<CompletionStage<TEntity>> {
-        val fieldList = table.fields().toList()
+        val fieldListNoId = table.fieldsWithoutIdentity()
+        val fieldListPlusId = listOf(*fieldListNoId.toTypedArray(), table.identity.field)
 
-        val (updateQueryInfo, batch) = queryForEntities(entities, fieldList) { fields ->
-            val insertQueryInfo = create
+        val (updateQueryInfo, batch) = queryForEntities(entities, fieldListPlusId) {
+            create
                     .update(table)
-                    .set(fields.associate { it to "" })
-
-            // Use an array of empty strings for the values of the query at this point. These will be replaced during
-            // execution with the proper values from the batch. This is just used to generate the correct query in Jooq.
-            // Not specifying values will result in default values being inserted, rather than the query being generated
-            // with the proper param placeholder list to be replaced during execution.
-//            insertQueryInfo.values(List(fieldList.size) { "" })
-            insertQueryInfo
+                    .set(fieldListNoId.associate { it to "" })
         }
 
-        // Modify the current query to return the ID field for the inserted records
-        val query = updateQueryInfo.returning(fieldList)
+        // Modify the current query to specify the ID for the rows to update and return all fields for the updated
+        // records
+        val query = updateQueryInfo.where(field("ID").eq("")).returning(fieldListPlusId)
 
         // Array of CompletableFuture instances to be resolved in order with the updated contents of the entities passed
         // in to be updated. This allows us to ensure that the entities are as expected.
         val futures = Array(size = entities.size) { CompletableFuture<TEntity>() }
 
-        connectionPool.getConnection {
-            if (it.failed()) {
-                println("Failed to get connection ${it.failed()}")
-                throw it.cause()
-            }
+        val sql = query.getSqlWithNumberedParams(fieldListPlusId.size)
 
-            val sql = query.getSqlWithNumberedParams(fieldList.size)
-            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
-                if (asyncResultRowSet.failed()) {
-                    println(asyncResultRowSet.cause())
-                    throw asyncResultRowSet.cause()
-                }
+        logger?.log(Level.FINE, "Generated query string for update: \n$sql")
 
-                val mutableEntityList = entities.toMutableList()
-                val mappings = tableFieldMapper.mapEntityPropertiesToTableFields(entities.first().javaClass.kotlin.memberProperties, fieldList)
+        executeQuery(sql, batch, { throwable -> futures.forEach { it.completeExceptionally(throwable) } }) { asyncResultRowSet ->
+            logger?.log(Level.FINE, "Successfully executed query")
 
-                // Iterate over each result set, there should be one per entity we insert.
-                asyncResultRowSet.forEachIndexed { index, result ->
-                    println("Rowset count = ${result.value().size()}")
-                    val row = result.value().first()
-                    val foundIndex = mutableEntityList.indexOfFirst { it.id == row.getValue(table.identity.field.name) }
-                    println("index is equal to found index: ${index == foundIndex}")
+            val mutableEntityList = entities.toMutableList()
+            val mappings = tableFieldMapper.mapEntityPropertiesToTableFields(
+                    entities.first().javaClass.kotlin.memberProperties,
+                    fieldListPlusId
+            )
 
-                    val entity = mutableEntityList.removeAt(foundIndex)
+            // Iterate over each result set, there should be one per entity we insert.
+            asyncResultRowSet.forEachIndexed { index, result ->
+                println("Rowset count = ${result.value().size()}")
+                val row = result.value().first()
+                val foundIndex = mutableEntityList.indexOfFirst { it.id == row.getValue(table.identity.field.name) }
 
-                    mappings.forEachIndexed { index, property ->
-                        val value = row.getValue(fieldList[index].name)
-                        if (property is KMutableProperty<*>) {
-                            property.setter.call(entity, value)
-                        }
+                logger?.log(Level.FINEST, "index is equal to found index: ${index == foundIndex}")
+
+                val entity = mutableEntityList.removeAt(foundIndex)
+
+                mappings.forEachIndexed { index, property ->
+                    val value = row.getValue(fieldListPlusId[index].name)
+                    if (property is KMutableProperty<*>) {
+                        property.setter.call(entity, value)
                     }
-
-                    futures[index].complete(entity)
                 }
+
+                futures[index].complete(entity)
             }
         }
+
+        return futures.toList()
     }
 
     override fun insert(entity: TEntity): CompletionStage<TId> {
@@ -126,8 +126,14 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
     }
 
     override fun insert(entities: List<TEntity>): List<CompletionStage<TId>> {
-        // Need to exclude ID field from fieldList as we are not inserting this but retrieving it.
-        val fieldList = table.fields().filter { it != table.identity.field }.toList()
+        // Need to exclude ID field from fieldList if we are not inserting it but only retrieving it.
+        // However, for this to be the case all entities should have null ID field. It's not possible to mix and
+        // match some with ID and some without.
+        val fieldList = when {
+            entities.all { it.id == null } -> table.fieldsWithoutIdentity()
+            entities.none { it.id == null } -> table.fields().toList()
+            else -> throw Exception("Inserted entities must either all have IDs or none should have IDs")
+        }
 
         val (insertQueryInfo, batch) = queryForEntities(entities, fieldList = fieldList) { fieldList ->
             val insertQueryInfo = create
@@ -147,50 +153,73 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // Array of CompletableFuture instances to be resolved in order with the IDs of the inserted entities.
         val futures = Array(size = entities.size) { CompletableFuture<TId>() }
 
-        connectionPool.getConnection { asyncResult ->
-            if (asyncResult.failed()) {
-                println("Failed to get connection ${asyncResult.failed()}")
-                throw asyncResult.cause()
+        val sql = query.getSqlWithNumberedParams(fieldList.size)
+
+        logger?.log(Level.FINE, "Generated query string for insert: \n$sql")
+
+        executeQuery(sql, batch, { throwable ->
+            futures.forEachIndexed { index, future ->
+                logger?.log(Level.INFO, "Completing exceptionally future $index")
+                future.completeExceptionally(throwable)
             }
-
-            val sql = query.getSqlWithNumberedParams(fieldList.size)
-            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
-                if (asyncResultRowSet.failed()) {
-                    println(asyncResultRowSet.cause())
-                    throw asyncResultRowSet.cause()
-                }
-
-                // Iterate over each result set, there should be one per entity we insert.
-                asyncResultRowSet.forEachIndexed { index, result ->
-                    // Within each result set iterate over each row.
-                    // There should only be one row for an insert.
-                    // Select the appropriate function to perform completion of promises for the insert of the batch
-                    // inserted entities. The function is selected by the type of the primary key field. This will
-                    // not work with composite keys.
-                    // The completion function is selected to avoid having to recalculate on each entity insertion;
-                    // currently we only support batch inserts to the same table.
-                    val completeEntityInsertPromise: (Row) -> Unit = when (table.identity.field.type.kotlin) {
-                        Long::class -> { row ->
-                            val future = futures[index] as CompletableFuture<Long>
-                            future.complete(row.getLong(0))
-                        }
-                        UUID::class -> { row ->
-                            val future = futures[index] as CompletableFuture<UUID>
-                            future.complete(row.getUUID(0))
-                        }
-                        else -> { row ->
-                            row.getValue(0) as Any
-                        }
+        }
+        ) { asyncResultRowSet ->
+            // Iterate over each result set, there should be one per entity we insert.
+            asyncResultRowSet.forEachIndexed { index, result ->
+                // Within each result set iterate over each row.
+                // There should only be one row for an insert.
+                // Select the appropriate function to perform completion of promises for the insert of the batch
+                // inserted entities. The function is selected by the type of the primary key field. This will
+                // not work with composite keys.
+                // The completion function is selected to avoid having to recalculate on each entity insertion;
+                // currently we only support batch inserts to the same table.
+                val completeEntityInsertPromise: (Row) -> Unit = when (table.identity.field.type.kotlin) {
+                    Long::class -> { row ->
+                        val future = futures[index] as CompletableFuture<Long>
+                        future.complete(row.getLong(0))
                     }
-
-                    result.forEach { completeEntityInsertPromise(it) }
+                    UUID::class -> { row ->
+                        val future = futures[index] as CompletableFuture<UUID>
+                        future.complete(row.getUUID(0))
+                    }
+                    else -> { row ->
+                        row.getValue(0) as Any
+                    }
                 }
+
+                result.forEach { completeEntityInsertPromise(it) }
             }
         }
 
         return futures.map {
             it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish")
         }.toList()
+    }
+
+    protected fun executeQuery(
+            sql: String,
+            batch: List<Tuple>,
+            failureAction: (Throwable) -> Unit,
+            successAction: (AsyncResult<PgRowSet>) -> Unit
+    ) {
+        connectionPool.getConnection { asyncResult ->
+
+            if (asyncResult.failed()) {
+                logger?.log(Level.SEVERE, "Failed to get connection ${asyncResult.cause()}")
+                failureAction(asyncResult.cause())
+                throw asyncResult.cause()
+            }
+
+            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
+                if (asyncResultRowSet.failed()) {
+                    logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
+                    failureAction(asyncResultRowSet.cause())
+                    throw asyncResultRowSet.cause()
+                }
+
+                successAction(asyncResultRowSet)
+            }
+        }
     }
 
     protected fun <TQuery : Query> queryForEntities(entities: List<TEntity>, fieldList: List<Field<*>>, createQuery: (List<Field<*>>) -> TQuery): Pair<TQuery, List<Tuple>> {
@@ -209,7 +238,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             val batchTuple = Tuple.tuple()
             // Run through the list of properties mapped by convention to bind values and add the values for these to
             // the tuple to be passed on batch execution. Tuple represents a single entity and a row to be
-            // inserted/udpated.
+            // inserted/updated.
             bindProperties.forEach {
                 batchTuple.addValue(it?.invoke(entity))
             }
@@ -217,4 +246,8 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         }
         return (queryInfo to batch)
     }
+
+    // Extension method to retrieve all table fields excluding the identity field. Useful for updates and inserts
+// when the identity field is already specified.
+    private fun Table<*>.fieldsWithoutIdentity() = fields().filter { it != table.identity.field }.toList()
 }

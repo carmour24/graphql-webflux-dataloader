@@ -29,10 +29,26 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         return stringBuilder.toString()
     }
 
+    fun updateCustomers(customersInput: List<CustomerInput>): CompletionStage<List<Customer>> {
+        val customers = customersInput.map { customerInput ->
+            with(customerInput) {
+                Customer(
+                        id = id,
+                        firstName = firstName,
+                        lastName = lastName,
+                        companyId = company,
+                        pricingDetailsId = pricingDetails,
+                        outOfOfficeDelegate = outOfOfficeDelegate
+                )
+            }
+        }
+        return customerService.update(customers)
+    }
+
     fun updateCustomer(customerInput: CustomerInput): CompletionStage<Customer> {
         val customer = with(customerInput) {
             Customer(
-                    id = Id,
+                    id = id,
                     firstName = firstName,
                     lastName = lastName,
                     companyId = company,
@@ -61,7 +77,7 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         val customers = customersInput.map {
             with(it) {
                 Customer(
-                        id = null,
+                        id = id,
                         firstName = firstName,
                         lastName = lastName,
                         companyId = company,
@@ -75,6 +91,7 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
     }
 
     data class CustomerInput(
+            val id: Long?,
             val firstName: String,
             val lastName: String,
             val company: Long,

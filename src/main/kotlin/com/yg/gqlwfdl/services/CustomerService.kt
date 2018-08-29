@@ -2,10 +2,9 @@ package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
-import com.yg.gqlwfdl.resolvers.Mutation
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletableFuture.allOf
+import java.util.concurrent.CompletableFuture.*
 import java.util.concurrent.CompletionStage
 
 /**
@@ -36,6 +35,8 @@ interface CustomerService {
     fun insert(customer: Customer): CompletionStage<CustomerID>
 
     fun update(customer: Customer): CompletionStage<Customer>
+
+    fun update(customers: List<Customer>): CompletionStage<List<Customer>>
 }
 
 /**
@@ -46,16 +47,22 @@ class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
     override fun update(customer: Customer) = customerRepository.update(customer)
 
+    override fun update(customers: List<Customer>): CompletionStage<List<Customer>> {
+        val customerFutures = customerRepository.update(customers).map { it.toCompletableFuture() }.toTypedArray()
+
+        return allOf(*customerFutures).thenCompose<List<Customer>> {
+            completedFuture<List<Customer>>(customerFutures.map { it.get() })
+        }
+    }
+
     override fun insert(customer: Customer) = customerRepository.insert(customer)
 
     override fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>> {
-        val customerFutureList = customerRepository.insert(customers).map { it.toCompletableFuture() }
-        val customerIdListFuture = CompletableFuture<List<CustomerID>>()
+        val customerFutures = customerRepository.insert(customers).map { it.toCompletableFuture() }.toTypedArray()
 
-        allOf(*customerFutureList.toTypedArray()).thenAccept {
-            customerIdListFuture.complete(customerFutureList.map { it.get() })
+        return allOf(*customerFutures).thenCompose<List<CustomerID>> {
+            completedFuture<List<CustomerID>>(customerFutures.map { it.get() })
         }
-        return customerIdListFuture
     }
 
     override fun findAll(requestInfo: EntityRequestInfo?) = customerRepository.findAll(requestInfo)

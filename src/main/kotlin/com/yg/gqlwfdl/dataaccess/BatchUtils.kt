@@ -34,11 +34,3 @@ fun AsyncResult<PgRowSet>.forEachIndexed(action: (index: Int, rowSet: PgRowSet) 
         result = result.next()
     }
 }
-
-// TODO: Replace with tested version from Unit Of Work project.
-fun Query.getSqlWithNumberedParams(fieldCount: Int): String {
-    var index = 0
-    return this.getSQL(ParamType.NAMED).replace(Regex("(?:\\:(\\d+))")) {
-        "\$${(index++ % fieldCount) + 1}"
-    }
-}

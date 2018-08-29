@@ -2,4 +2,5 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/base.xml"/>
     <logger name="org.jooq" level="DEBUG"/>
+    <logger name="com.yg" level="DEBUG"/>
 </configuration>
