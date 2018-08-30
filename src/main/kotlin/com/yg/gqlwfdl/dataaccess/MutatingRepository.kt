@@ -202,24 +202,15 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             failureAction: (Throwable) -> Unit,
             successAction: (AsyncResult<PgRowSet>) -> Unit
     ) {
-        connectionPool.getConnection { asyncResult ->
-
-            if (asyncResult.failed()) {
-                logger?.log(Level.SEVERE, "Failed to get connection ${asyncResult.cause()}")
-                failureAction(asyncResult.cause())
-                throw asyncResult.cause()
+        connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
+            if (asyncResultRowSet.failed()) {
+                logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
+                failureAction(asyncResultRowSet.cause())
+                throw asyncResultRowSet.cause()
             }
 
-            connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
-                if (asyncResultRowSet.failed()) {
-                    logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
-                    failureAction(asyncResultRowSet.cause())
-                    throw asyncResultRowSet.cause()
-                }
-
-                successAction(asyncResultRowSet)
-            }
-        }
+            successAction(asyncResultRowSet)
+       }
     }
 
     protected fun <TQuery : Query> queryForEntities(entities: List<TEntity>, fieldList: List<Field<*>>, createQuery: (List<Field<*>>) -> TQuery): Pair<TQuery, List<Tuple>> {
