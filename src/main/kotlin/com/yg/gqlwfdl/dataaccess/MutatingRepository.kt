@@ -1,10 +1,8 @@
 package com.yg.gqlwfdl.dataaccess
 
 import com.yg.gqlwfdl.services.Entity
-import io.reactiverse.pgclient.PgPool
-import io.reactiverse.pgclient.PgRowSet
+import io.reactiverse.pgclient.*
 import io.reactiverse.pgclient.Row
-import io.reactiverse.pgclient.Tuple
 import io.vertx.core.AsyncResult
 import org.jooq.*
 import org.jooq.impl.DSL.field
@@ -52,12 +50,12 @@ interface MutatingRepository<TEntity, TId> {
  * @param TEntity [Entity] subclass corresponding to the Jooq [TRecord] [TableRecord] subclass
  * @param TId Id type used in [TEntity]. This should correspond to the type of [table.identity.field]
  * @param create A properly initialised Jooq DSL context used to generate the SQL for the current table to be executed
- * @param connectionPool The PgPool connection pool on which to execute the generated queries
+ * @param pgClient The PgPool connection pool on which to execute the generated queries
  * @param table The Jooq [Table]
  */
 open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : TableRecord<TRecord>>(
         protected val create: DSLContext,
-        protected val connectionPool: PgPool,
+        protected val pgClient: PgClient,
         val table: Table<TRecord>,
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
@@ -202,7 +200,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             failureAction: (Throwable) -> Unit,
             successAction: (AsyncResult<PgRowSet>) -> Unit
     ) {
-        connectionPool.preparedBatch(sql, batch) { asyncResultRowSet ->
+        pgClient.preparedBatch(sql, batch) { asyncResultRowSet ->
             if (asyncResultRowSet.failed()) {
                 logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
                 failureAction(asyncResultRowSet.cause())

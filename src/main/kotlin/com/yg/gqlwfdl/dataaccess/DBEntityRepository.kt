@@ -288,7 +288,7 @@ abstract class DBEntityRepository<
         return Flux.create<TEntity> { sink ->
             sink.onRequest {
                 logMessage("Sink request received")
-                sink.ifOk<PgConnection>({ connectionPool.getConnection(it) }) { connection ->
+                sink.ifOk<PgConnection>({ pgClient.getConnection(it) }) { connection ->
                     logMessage("Got DB connection")
                     val sqlWithParams = getSQL(ParamType.INLINED)
                     logMessage("Preparing query: $sqlWithParams")

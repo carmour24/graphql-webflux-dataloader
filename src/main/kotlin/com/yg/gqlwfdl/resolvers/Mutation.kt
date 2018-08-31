@@ -8,6 +8,8 @@ import com.yg.gqlwfdl.services.CustomerID
 import com.yg.gqlwfdl.services.CustomerService
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")
@@ -90,6 +92,12 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         return customerService.insert(customers)
     }
 
+    fun createOrder(order: OrderInput): Long {
+        Logger.getLogger(this.javaClass.kotlin.qualifiedName).log(Level.INFO, "$order")
+
+        return 1
+    }
+
     data class CustomerInput(
             val id: Long?,
             val firstName: String,
@@ -97,5 +105,19 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
             val company: Long,
             val pricingDetails: Long,
             val outOfOfficeDelegate: Long?
+    )
+
+    data class OrderInput(
+            val id: Long?,
+            val customer: Long,
+            val date: String,
+            val deliveryAddress: String,
+            val lines: List<OrderLineInput>
+    )
+
+    data class OrderLineInput(
+            val id: Long?,
+            val product: Long,
+            val price: Float
     )
 }

@@ -1,14 +1,14 @@
 package com.yg.gqlwfdl.services
 
 import java.time.OffsetDateTime
-import java.util.*
+
 
 /**
  * Interface which all entities (domain model objects) implement.
  *
  * @param TId The data type of the unique [id] of this entity.
  */
-interface Entity<TId> {
+interface Entity<TId> : com.opidis.unitofwork.data.Entity {
     /**
      * The unique identifier of this entity.
      */
