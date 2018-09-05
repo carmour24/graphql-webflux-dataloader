@@ -5,9 +5,10 @@ import com.opidis.unitofwork.data.Entity
 import com.opidis.unitofwork.data.QueryMappingConfiguration
 import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.services.Customer
+import io.reactiverse.pgclient.PgClient
 import kotlin.reflect.KClass
 
-typealias QueryAction = () -> Unit
+typealias QueryAction = (PgClient) -> Unit
 
 class QueryMappingConfiguration(private val customerRepository: CustomerRepository) :
         QueryMappingConfiguration<QueryAction> {
@@ -22,9 +23,9 @@ class QueryMappingConfiguration(private val customerRepository: CustomerReposito
 
     private fun queryForCustomers(changeType: ChangeType, customerEntities: List<Customer>): QueryAction {
         return when (changeType) {
-            ChangeType.Delete -> { -> }
-            ChangeType.Update -> { -> customerRepository.update(customerEntities) }
-            ChangeType.Insert -> { -> customerRepository.insert(customerEntities) }
+            ChangeType.Delete -> { pgClient -> }
+            ChangeType.Update -> { pgClient -> customerRepository.update(customerEntities) }
+            ChangeType.Insert -> { pgClient -> customerRepository.insert(customerEntities) }
         }
     }
 

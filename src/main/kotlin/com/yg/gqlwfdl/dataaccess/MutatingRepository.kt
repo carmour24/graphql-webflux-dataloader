@@ -15,10 +15,11 @@ import kotlin.reflect.KCallable
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
 
+interface ExecutionInfo
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
  */
-interface MutatingRepository<TEntity, TId> {
+interface MutatingRepository<TEntity, TId, TExecutionInfo: ExecutionInfo> {
     fun <TEntity : Entity<*>, TRecord : Record> EntityRepository<*, *>.newRecordFrom(entity: TEntity,
                                                                                      createRecord: KCallable<TRecord>):
             TRecord {
@@ -31,18 +32,20 @@ interface MutatingRepository<TEntity, TId> {
      * Inserts a [TEntity] to the repository. Returns a [CompletableFuture] object which is resolved when the insert
      * is completed.
      */
-    fun insert(entity: TEntity): CompletionStage<TId>
+    fun insert(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<TId>
 
     /**
      * Inserts a [List] of entities to the repository. Returns a [List] of [CompletionStage] objects which are
      * each resolved when their respective insert is completed.
      */
-    fun insert(entities: List<TEntity>): List<CompletionStage<TId>>
+    fun insert(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): List<CompletionStage<TId>>
 
-    fun update(entity: TEntity): CompletionStage<TEntity>
+    fun update(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<TEntity>
 
-    fun update(entities: List<TEntity>): List<CompletionStage<TEntity>>
+    fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): List<CompletionStage<TEntity>>
 }
+
+class PgClientExecutionInfo(val pgClient: PgClient): ExecutionInfo
 
 /**
  * DB implementation of [MutatingRepository] using Jooq for SQL generation and reactive pg client for execution.
@@ -59,12 +62,12 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         val table: Table<TRecord>,
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
-) : MutatingRepository<TEntity, TId> {
+) : MutatingRepository<TEntity, TId, PgClientExecutionInfo> {
     private val logger: Logger? = Logger.getLogger(this.javaClass.name)
 
-    override fun update(entity: TEntity): CompletionStage<TEntity> = update(listOf(entity)).first()
+    override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<TEntity> = update(listOf(entity), executionInfo).first()
 
-    override fun update(entities: List<TEntity>): List<CompletionStage<TEntity>> {
+    override fun update(entities: List<TEntity>, executionInfo: PgClientExecutionInfo? ): List<CompletionStage<TEntity>> {
         val fieldListNoId = table.fieldsWithoutIdentity()
         val fieldListPlusId = listOf(*fieldListNoId.toTypedArray(), table.identity.field)
 
@@ -86,7 +89,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
         logger?.log(Level.FINE, "Generated query string for update: \n$sql")
 
-        executeQuery(sql, batch, { throwable -> futures.forEach { it.completeExceptionally(throwable) } }) { asyncResultRowSet ->
+        // If an execution info has been specified then use the client from that as it may be part of a transaction,
+        // otherwise use the constructor injected client, which will perform queries outside of a transaction.
+        val client = executionInfo?.pgClient ?: pgClient
+
+        executeQuery(sql, client, batch, { throwable -> futures.forEach { it.completeExceptionally(throwable) } }) { asyncResultRowSet ->
             logger?.log(Level.FINE, "Successfully executed query")
 
             val mutableEntityList = entities.toMutableList()
@@ -119,11 +126,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         return futures.toList()
     }
 
-    override fun insert(entity: TEntity): CompletionStage<TId> {
-        return insert(listOf(entity)).first()
+    override fun insert(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<TId> {
+        return insert(listOf(entity), executionInfo).first()
     }
 
-    override fun insert(entities: List<TEntity>): List<CompletionStage<TId>> {
+    override fun insert(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): List<CompletionStage<TId>> {
         // Need to exclude ID field from fieldList if we are not inserting it but only retrieving it.
         // However, for this to be the case all entities should have null ID field. It's not possible to mix and
         // match some with ID and some without.
@@ -155,7 +162,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
         logger?.log(Level.FINE, "Generated query string for insert: \n$sql")
 
-        executeQuery(sql, batch, { throwable ->
+        // If an execution info has been specified then use the client from that as it may be part of a transaction,
+        // otherwise use the constructor injected client, which will perform queries outside of a transaction.
+        val client = executionInfo?.pgClient ?: pgClient
+
+        executeQuery(sql, client, batch, { throwable ->
             futures.forEachIndexed { index, future ->
                 logger?.log(Level.INFO, "Completing exceptionally future $index")
                 future.completeExceptionally(throwable)
@@ -196,11 +207,12 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
     protected fun executeQuery(
             sql: String,
+            client: PgClient,
             batch: List<Tuple>,
             failureAction: (Throwable) -> Unit,
             successAction: (AsyncResult<PgRowSet>) -> Unit
     ) {
-        pgClient.preparedBatch(sql, batch) { asyncResultRowSet ->
+        client.preparedBatch(sql, batch) { asyncResultRowSet ->
             if (asyncResultRowSet.failed()) {
                 logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
                 failureAction(asyncResultRowSet.cause())
@@ -208,7 +220,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             }
 
             successAction(asyncResultRowSet)
-       }
+        }
     }
 
     protected fun <TQuery : Query> queryForEntities(entities: List<TEntity>, fieldList: List<Field<*>>, createQuery: (List<Field<*>>) -> TQuery): Pair<TQuery, List<Tuple>> {
