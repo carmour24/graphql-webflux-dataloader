@@ -1,11 +1,15 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
+import com.opidis.unitofwork.data.DefaultEntityTrackingUnitOfWork
 import com.yg.gqlwfdl.TestDataCreator
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.CustomerID
 import com.yg.gqlwfdl.services.CustomerService
+import com.yg.gqlwfdl.unitofwork.QueryAction
+import com.yg.gqlwfdl.unitofwork.UnitOfWork
+import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
@@ -31,20 +35,30 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         return stringBuilder.toString()
     }
 
-    fun updateCustomers(customersInput: List<CustomerInput>): CompletionStage<List<Customer>> {
-        val customers = customersInput.map { customerInput ->
-            with(customerInput) {
-                Customer(
-                        id = id,
-                        firstName = firstName,
-                        lastName = lastName,
-                        companyId = company,
-                        pricingDetailsId = pricingDetails,
-                        outOfOfficeDelegate = outOfOfficeDelegate
-                )
+    fun updateCustomers(customersInput: List<CustomerInput>, unitOfWork: UnitOfWork):
+            CompletionStage<List<Customer>> {
+
+        val customerIds = customersInput.mapNotNull { it.id }
+        return customerService.findByIds(customerIds).thenApply {
+            it.forEach { customer ->
+                unitOfWork.trackEntityForChanges(customer)
+                val customerInput = customersInput.find { it.id == customer.id }
+
+                if (customerInput != null) {
+                    with(customer) {
+                        firstName = customerInput.firstName
+                        lastName = customerInput.lastName
+                        companyId = customerInput.company
+                        pricingDetailsId = customerInput.pricingDetails
+                        outOfOfficeDelegate = customerInput.outOfOfficeDelegate
+                    }
+                }
             }
+        }.thenCompose {
+            unitOfWork.complete()
+
+            customerService.findByIds(customerIds)
         }
-        return customerService.update(customers)
     }
 
     fun updateCustomer(customerInput: CustomerInput): CompletionStage<Customer> {

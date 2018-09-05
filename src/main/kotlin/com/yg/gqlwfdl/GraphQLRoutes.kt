@@ -7,7 +7,6 @@ import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.dataloaders.DataLoaderFactory
 import com.yg.gqlwfdl.resolvers.*
 import com.yg.gqlwfdl.services.*
-import com.yg.gqlwfdl.unitofwork.QueryAction
 import com.yg.gqlwfdl.unitofwork.QueryCoordinator
 import com.yg.gqlwfdl.unitofwork.QueryMappingConfiguration
 import graphql.ExecutionInput
@@ -77,9 +76,9 @@ class GraphQLRoutes(customerService: CustomerService,
         val requestContext = RequestContext(registry)
         dataLoaderFactory.createAllAndRegister(registry, requestContext)
 
-        val queryMappingConfiguration = QueryMappingConfiguration()
-        val queryCoordinator = QueryCoordinator()
-        val unitOfWork = DefaultEntityTrackingUnitOfWork(queryMappingConfiguration, queryCoordinator = queryCoordinator)
+//        val queryMappingConfiguration = QueryMappingConfiguration()
+//        val queryCoordinator = QueryCoordinator()
+//        val unitOfWork = DefaultEntityTrackingUnitOfWork(queryMappingConfiguration, queryCoordinator = queryCoordinator)
 
         val executionInput = newExecutionInput()
                 .query(graphQLParameters.query)
