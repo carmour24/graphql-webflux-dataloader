@@ -98,7 +98,7 @@ public class Public extends SchemaImpl {
     public final VatRate VAT_RATE = com.yg.gqlwfdl.dataaccess.db.tables.VatRate.VAT_RATE;
 
     /**
-     * No further joinInstances allowed
+     * No further instances allowed
      */
     private Public() {
         super("public", null);

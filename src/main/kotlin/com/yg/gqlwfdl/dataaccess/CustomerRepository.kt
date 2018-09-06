@@ -17,7 +17,8 @@ import org.springframework.stereotype.Repository
 /**
  * Repository providing access to customer information.
  */
-interface CustomerRepository : EntityRepository<Customer, CustomerID>, MutatingRepository<Customer, CustomerID>
+interface CustomerRepository : EntityRepository<Customer, CustomerID>, MutatingRepository<Customer, CustomerID,
+        PgClientExecutionInfo>
 
 /**
  * Concrete implementation of [CustomerRepository], which uses a database for its data.
@@ -31,7 +32,7 @@ class DBCustomerRepository(create: DSLContext,
     : SingleRowDBEntityRepository<Customer, CustomerID, CustomerRecord, QueryInfo<CustomerRecord>>(
         create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
         CUSTOMER, CUSTOMER.ID),
-        MutatingRepository<Customer, CustomerID> by DBMutatingEntityRepository(
+        MutatingRepository<Customer, CustomerID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
                 table = CUSTOMER

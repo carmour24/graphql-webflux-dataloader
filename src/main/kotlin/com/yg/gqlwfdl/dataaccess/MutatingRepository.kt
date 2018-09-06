@@ -1,5 +1,6 @@
 package com.yg.gqlwfdl.dataaccess
 
+import com.opidis.unitofwork.data.ExecutionInfo
 import com.yg.gqlwfdl.services.Entity
 import io.reactiverse.pgclient.*
 import io.reactiverse.pgclient.Row
@@ -15,11 +16,10 @@ import kotlin.reflect.KCallable
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
 
-interface ExecutionInfo
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
  */
-interface MutatingRepository<TEntity, TId, TExecutionInfo: ExecutionInfo> {
+interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
     fun <TEntity : Entity<*>, TRecord : Record> EntityRepository<*, *>.newRecordFrom(entity: TEntity,
                                                                                      createRecord: KCallable<TRecord>):
             TRecord {
@@ -45,7 +45,7 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo: ExecutionInfo> {
     fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): List<CompletionStage<TEntity>>
 }
 
-class PgClientExecutionInfo(val pgClient: PgClient): ExecutionInfo
+class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
 
 /**
  * DB implementation of [MutatingRepository] using Jooq for SQL generation and reactive pg client for execution.
@@ -67,7 +67,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
     override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<TEntity> = update(listOf(entity), executionInfo).first()
 
-    override fun update(entities: List<TEntity>, executionInfo: PgClientExecutionInfo? ): List<CompletionStage<TEntity>> {
+    override fun update(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): List<CompletionStage<TEntity>> {
         val fieldListNoId = table.fieldsWithoutIdentity()
         val fieldListPlusId = listOf(*fieldListNoId.toTypedArray(), table.identity.field)
 
@@ -97,6 +97,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             logger?.log(Level.FINE, "Successfully executed query")
 
             val mutableEntityList = entities.toMutableList()
+
             val mappings = tableFieldMapper.mapEntityPropertiesToTableFields(
                     entities.first().javaClass.kotlin.memberProperties,
                     fieldListPlusId
@@ -248,7 +249,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         return (queryInfo to batch)
     }
 
-    // Extension method to retrieve all table fields excluding the identity field. Useful for updates and inserts
-// when the identity field is already specified.
+    // Extension method to retrieve all table fields excluding the identity field. Useful for updates, and inserts
+    // when the identity field is already specified.
     private fun Table<*>.fieldsWithoutIdentity() = fields().filter { it != table.identity.field }.toList()
 }

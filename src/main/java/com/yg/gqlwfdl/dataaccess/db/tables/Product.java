@@ -41,7 +41,7 @@ import org.jooq.impl.TableImpl;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Product extends TableImpl<ProductRecord> {
 
-    private static final long serialVersionUID = 573856272;
+    private static final long serialVersionUID = -2032680623;
 
     /**
      * The reference instance of <code>public.product</code>
@@ -74,7 +74,7 @@ public class Product extends TableImpl<ProductRecord> {
     /**
      * The column <code>public.product.company</code>.
      */
-    public final TableField<ProductRecord, Long> COMPANY = createField("company", org.jooq.impl.SQLDataType.BIGINT, this, "");
+    public final TableField<ProductRecord, Long> COMPANY = createField("company", org.jooq.impl.SQLDataType.BIGINT.nullable(false), this, "");
 
     /**
      * Create a <code>public.product</code> table reference
