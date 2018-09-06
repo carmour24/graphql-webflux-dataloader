@@ -12,7 +12,7 @@ class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoor
         hashMap[entity] = entity.hashCode()
     }
 
-    override fun complete(executionInfo: PgClientExecutionInfo?): CompletionStage<Void> {
+    override fun complete(): CompletionStage<Void> {
         // Run through all entities checking for changes and inserting them into the changed entity list
         val completionStages = hashMap.map { (entity, hashCode) ->
             if (entity.hashCode() != hashCode) {
@@ -22,6 +22,6 @@ class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoor
             }
         }.filterNotNull()
 
-        return super.complete(executionInfo)
+        return super.complete()
     }
 }

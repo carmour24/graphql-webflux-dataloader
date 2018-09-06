@@ -4,11 +4,13 @@ import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.opidis.unitofwork.data.DefaultEntityTrackingUnitOfWork
 import com.yg.gqlwfdl.TestDataCreator
 import com.yg.gqlwfdl.dataaccess.DBConfig
+import com.yg.gqlwfdl.requestContext
 import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.CustomerID
 import com.yg.gqlwfdl.services.CustomerService
 import com.yg.gqlwfdl.unitofwork.QueryAction
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
+import graphql.schema.DataFetchingEnvironment
 import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
@@ -35,8 +37,10 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         return stringBuilder.toString()
     }
 
-    fun updateCustomers(customersInput: List<CustomerInput>, unitOfWork: UnitOfWork):
+    fun updateCustomers(customersInput: List<CustomerInput>, env: DataFetchingEnvironment):
             CompletionStage<List<Customer>> {
+
+        val unitOfWork = env.requestContext.unitOfWork
 
         val customerIds = customersInput.mapNotNull { it.id }
         return customerService.findByIds(customerIds).thenApply {

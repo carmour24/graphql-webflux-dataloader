@@ -9,6 +9,7 @@ import com.yg.gqlwfdl.resolvers.*
 import com.yg.gqlwfdl.services.*
 import com.yg.gqlwfdl.unitofwork.QueryCoordinator
 import com.yg.gqlwfdl.unitofwork.QueryMappingConfiguration
+import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.ExecutionInput
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
@@ -43,7 +44,9 @@ class GraphQLRoutes(customerService: CustomerService,
                     productService: ProductService,
                     orderService: OrderService,
                     private val dataLoaderFactory: DataLoaderFactory,
-                    dbConfig: DBConfig) {
+                    dbConfig: DBConfig,
+                    private val queryMappingConfiguration: QueryMappingConfiguration,
+                    private val queryCoordinator: QueryCoordinator) {
 
     private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService,
             orderService, dbConfig)
@@ -73,12 +76,10 @@ class GraphQLRoutes(customerService: CustomerService,
         // Create a data loader registry and register all the data loader into it. Wrap this in a RequestContext
         // object, and make this available to all the resolvers via the execution input's "context" property.
         val registry = DataLoaderRegistry()
-        val requestContext = RequestContext(registry)
+        val unitOfWork = UnitOfWork(queryMappingConfiguration, queryCoordinator = queryCoordinator)
+        val requestContext = RequestContext(registry, unitOfWork)
         dataLoaderFactory.createAllAndRegister(registry, requestContext)
 
-//        val queryMappingConfiguration = QueryMappingConfiguration()
-//        val queryCoordinator = QueryCoordinator()
-//        val unitOfWork = DefaultEntityTrackingUnitOfWork(queryMappingConfiguration, queryCoordinator = queryCoordinator)
 
         val executionInput = newExecutionInput()
                 .query(graphQLParameters.query)

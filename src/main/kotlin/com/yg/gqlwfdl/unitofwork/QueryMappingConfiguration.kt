@@ -8,10 +8,12 @@ import com.yg.gqlwfdl.dataaccess.CustomerRepository
 import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
 import com.yg.gqlwfdl.services.Customer
 import io.reactiverse.pgclient.PgClient
+import org.springframework.stereotype.Component
 import kotlin.reflect.KClass
 
 typealias QueryAction = (PgClientExecutionInfo?) -> Unit
 
+@Component
 class QueryMappingConfiguration(private val customerRepository: CustomerRepository) :
         QueryMappingConfiguration<QueryAction> {
     override fun <T : Entity> queryFor(changeType: ChangeType, entities: List<T>): QueryAction {

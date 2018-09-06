@@ -2,6 +2,7 @@ package com.yg.gqlwfdl
 
 import com.yg.gqlwfdl.services.DataLoaderPrimerEntityCreationListener
 import com.yg.gqlwfdl.services.Entity
+import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.ExecutionInput
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoaderRegistry
@@ -17,7 +18,7 @@ import org.dataloader.DataLoaderRegistry
  *
  * @property dataLoaderRegistry The registry of data loaders which provides access to the data loaders.
  */
-class RequestContext(val dataLoaderRegistry: DataLoaderRegistry) {
+class RequestContext(val dataLoaderRegistry: DataLoaderRegistry, val unitOfWork: UnitOfWork) {
 
     // TODO: this object is a "newable" (rather than "injectable") but it constructs the entity creation listener, which
     // is an "injectable". Also it doesn't implement an interface. So basically this object can't really be unit tested
