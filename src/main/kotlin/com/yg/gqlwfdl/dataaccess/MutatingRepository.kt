@@ -116,9 +116,9 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // Need to exclude ID field from fieldList if we are not inserting it but only retrieving it.
         // However, for this to be the case all entities should have null ID field. It's not possible to mix and
         // match some with ID and some without.
-        val fieldList = when {
-            entities.all { it.id == null } -> table.fieldsWithoutIdentity()
-            entities.none { it.id == null } -> table.fields().toList()
+        val (fieldList, entityIdsNotSpecified) = when {
+            entities.all { it.id == null } -> table.fieldsWithoutIdentity() to true
+            entities.none { it.id == null } -> table.fields().toList() to false
             else -> throw Exception("Inserted entities must either all have IDs or none should have IDs")
         }
 
@@ -134,8 +134,12 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             insertQueryInfo.values(List(fieldList.size) { "" })
         }
 
-        // Modify the current query to return the ID field for the inserted records
-        val query = insertQueryInfo.returning(table.identity.field)
+        val query = if (entityIdsNotSpecified) {
+            // Modify the current query to return the ID field for the inserted records
+            insertQueryInfo.returning(table.identity.field)
+        } else {
+            insertQueryInfo.returning()
+        }
 
         // Future to be completed with the list of IDs returned from the newly inserted entities.
         val future = CompletableFuture<List<TId>>()
@@ -167,6 +171,13 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
                 // There should only be one row for an insert.
                 result.map { getRowIdentityValue(it) }.toList()
             }.result()
+
+            // If the entity was not specified during insert then we should populate the entities with it.
+            if (entityIdsNotSpecified) {
+                result.forEachIndexed {index, tId ->
+                    entities[index].id = tId
+                }
+            }
 
             future.complete(result)
         }

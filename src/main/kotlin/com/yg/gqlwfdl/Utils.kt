@@ -1,5 +1,7 @@
 package com.yg.gqlwfdl
 
+import java.util.logging.Logger
+
 // Miscellaneous utility functions
 
 /**
@@ -12,3 +14,9 @@ package com.yg.gqlwfdl
  * @see [let]
  */
 inline fun <T, R, I : Iterable<T>> I.letIfAny(block: (I) -> R): R? = if (this.any()) block(this) else null
+
+/**
+ * Add an extension method to all types so we can get a logger for that class without repeating the same code
+ * everywhere.
+ */
+fun Any.getLogger(): Logger? = Logger.getLogger(this.javaClass.canonicalName)

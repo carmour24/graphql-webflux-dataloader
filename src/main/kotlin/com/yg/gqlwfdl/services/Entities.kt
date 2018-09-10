@@ -12,25 +12,14 @@ interface Entity<TId> : com.opidis.unitofwork.data.Entity {
     /**
      * The unique identifier of this entity.
      */
-    val id: TId?
+    var id: TId?
 }
 
 /**
  * Interface representing an object which wraps an [Entity] and exposes it. Also able to act as an entity itself. Allows
  * the Decorator pattern to be used to add (potentially multiple pieces of) functionality/data to entities.
  */
-interface EntityWrapper<TId, TEntity : Entity<TId>> : Entity<TId> {
-    /**
-     * The wrapped entity.
-     */
-    val entity: TEntity
-
-    /**
-     * The ID of this entity: defaults to the ID of the wrapped entity itself.
-     */
-    override val id: TId?
-        get() = entity.id
-}
+abstract class EntityWrapper<TId, TEntity : Entity<TId>>(val entity: TEntity) : Entity<TId> by entity
 
 typealias CustomerID = Long
 typealias CompanyID = Long
@@ -44,7 +33,7 @@ typealias OrderID = Long
 typealias LineID = Long
 
 data class Customer(
-        override val id: CustomerID?,
+        override var id: CustomerID?,
         var firstName: String,
         var lastName: String,
         var companyId: Long,
@@ -54,36 +43,36 @@ data class Customer(
 
 
 data class Company(
-        override val id: CompanyID,
+        override var id: CompanyID?,
         var name: String,
         var address: String,
         var pricingDetailsId: PricingDetailsID,
         var primaryContact: CustomerID? = null) : Entity<CompanyID>
 
 data class CompanyPartnership(
-        override val id: CompanyPartnershipID,
+        override var id: CompanyPartnershipID?,
         val companyA: Company,
         val companyB: Company) : Entity<CompanyPartnershipID>
 
 data class VatRate(
-        override val id: VatRateID,
+        override var id: VatRateID?,
         var description: String,
         var value: Double) : Entity<VatRateID>
 
 data class DiscountRate(
-        override val id: DiscountRateID,
+        override var id: DiscountRateID?,
         var description: String,
         var value: Double
 ) : Entity<DiscountRateID>
 
 data class PaymentMethod(
-        override val id: PaymentMethodID,
+        override var id: PaymentMethodID?,
         var description: String,
         var charge: Double
 ) : Entity<PaymentMethodID>
 
 data class PricingDetails(
-        override val id: PricingDetailsID,
+        override var id: PricingDetailsID?,
         var description: String,
         var vatRate: VatRate,
         var discountRate: DiscountRate,
@@ -91,14 +80,14 @@ data class PricingDetails(
 ) : Entity<PricingDetailsID>
 
 data class Product(
-        override val id: ProductID,
+        override var id: ProductID?,
         var description: String,
         var price: Double,
         var companyId: CompanyID
 ) : Entity<ProductID>
 
 data class Order(
-        override val id: OrderID,
+        override var id: OrderID?,
         var customerId: CustomerID,
         var date: OffsetDateTime,
         var deliveryAddress: String,
@@ -106,7 +95,7 @@ data class Order(
 ) : Entity<OrderID> {
 
     data class Line(
-            override val id: LineID,
+            override var id: LineID?,
             var product: Product,
             var price: Double
     ) : Entity<LineID>
@@ -115,5 +104,5 @@ data class Order(
 /**
  * A wrapper around an [Entity] which exposes the entity itself, and a count.
  */
-class EntityWithCount<TId, TEntity : Entity<TId>>(override val entity: TEntity,
-                                                  val count: Int) : EntityWrapper<TId, Entity<TId>>
+class EntityWithCount<TId, TEntity : Entity<TId>>(entity: TEntity, val count: Int)
+    : EntityWrapper<TId, TEntity> (entity)

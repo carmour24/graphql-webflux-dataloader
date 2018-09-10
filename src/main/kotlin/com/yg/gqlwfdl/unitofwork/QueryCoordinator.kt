@@ -2,20 +2,34 @@ package com.yg.gqlwfdl.unitofwork
 
 import com.opidis.unitofwork.data.QueryCoordinator
 import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
+import com.yg.gqlwfdl.getLogger
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.PgTransaction
 import org.springframework.stereotype.Component
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletableFuture.allOf
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
 import java.util.logging.Logger
 
+
 @Component
 class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryAction, PgClientExecutionInfo> {
-    private val logger = Logger.getLogger(this.javaClass.canonicalName)
+    private val logger by lazy { getLogger() }
+
     override fun batchExecute(queries: List<QueryAction>, executionInfo: PgClientExecutionInfo?):
             CompletionStage<IntArray> {
-        queries.map {
-            it.invoke(executionInfo)
+        val queryFutures = queries.map {
+            it.invoke(executionInfo).toCompletableFuture()
+        }
+
+        return allOf(*queryFutures.toTypedArray()).thenCompose {
+            queryFutures.reduceRight { completableFuture, acc ->
+                val combinedArrays = completableFuture.get() + acc.get()
+                val future = CompletableFuture<IntArray>()
+                future.complete(combinedArrays)
+                future
+            }
         }
     }
 

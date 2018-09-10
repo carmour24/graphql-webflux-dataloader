@@ -32,7 +32,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
             // is handled.
             val dataLoader = when (dataLoaderType) {
                 DataLoaderType.COMPANY -> createSimpleDataLoader<Long, Company>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     companyService.findByIds(ids, requestInfo)
                 }
 
@@ -42,17 +42,17 @@ class DataLoaderFactory(private val customerService: CustomerService,
                 }
 
                 DataLoaderType.COMPANY_PARTNERSHIP -> createSimpleDataLoader<Long, CompanyPartnership>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     companyPartnershipService.findByIds(ids, requestInfo)
                 }
 
                 DataLoaderType.PRICING_DETAILS -> createSimpleDataLoader<Long, PricingDetails>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     pricingDetailsService.findByIds(ids, requestInfo)
                 }
 
                 DataLoaderType.PRODUCT -> createSimpleDataLoader<Long, Product>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     productService.findByIds(ids, requestInfo)
                 }
 
@@ -68,7 +68,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
                 }
 
                 DataLoaderType.ORDER -> createSimpleDataLoader<Long, Order>(
-                        requestContext, { it.id }) { ids, requestInfo ->
+                        requestContext, { it.id!! }) { ids, requestInfo ->
                     orderService.findByIds(ids, requestInfo)
                 }
 
