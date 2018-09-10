@@ -3,6 +3,7 @@ package com.yg.gqlwfdl.unitofwork
 import com.opidis.unitofwork.data.QueryCoordinator
 import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
 import io.reactiverse.pgclient.PgPool
+import io.reactiverse.pgclient.PgTransaction
 import org.springframework.stereotype.Component
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
@@ -13,14 +14,15 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
     private val logger = Logger.getLogger(this.javaClass.canonicalName)
     override fun batchExecute(queries: List<QueryAction>, executionInfo: PgClientExecutionInfo?):
             CompletionStage<IntArray> {
-        throw NotImplementedError()
+        queries.map {
+            it.invoke(executionInfo)
+        }
     }
 
-    override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit) {
+    override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): () -> Unit {
         pgPool.getConnection { connectionResult ->
             if (connectionResult.failed()) {
                 logger?.log(Level.SEVERE, "Failed to get connection ${connectionResult.cause()}")
-//                failureAction(asyncResultRowSet.cause())
                 throw connectionResult.cause()
             }
 
@@ -30,10 +32,10 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
 
             val executionInfo = PgClientExecutionInfo(connection)
 
-
+            transactional(executionInfo)
 
             transaction.commit()
-
         }
+        return {}
     }
 }

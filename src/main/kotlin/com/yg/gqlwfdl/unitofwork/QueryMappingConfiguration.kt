@@ -9,9 +9,11 @@ import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
 import com.yg.gqlwfdl.services.Customer
 import io.reactiverse.pgclient.PgClient
 import org.springframework.stereotype.Component
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import kotlin.reflect.KClass
 
-typealias QueryAction = (PgClientExecutionInfo?) -> Unit
+typealias QueryAction = (PgClientExecutionInfo?) -> CompletionStage<*>
 
 @Component
 class QueryMappingConfiguration(private val customerRepository: CustomerRepository) :
@@ -27,7 +29,11 @@ class QueryMappingConfiguration(private val customerRepository: CustomerReposito
 
     private fun queryForCustomers(changeType: ChangeType, customerEntities: List<Customer>): QueryAction {
         return when (changeType) {
-            ChangeType.Delete -> { executionInfo -> }
+            ChangeType.Delete -> { executionInfo -> {
+                val future = CompletableFuture<IntArray>()
+                        future.complete(intArrayOf(0))
+                future
+            } }
             ChangeType.Update -> { executionInfo -> customerRepository.update(customerEntities, executionInfo) }
             ChangeType.Insert -> { executionInfo -> customerRepository.insert(customerEntities, executionInfo) }
         }

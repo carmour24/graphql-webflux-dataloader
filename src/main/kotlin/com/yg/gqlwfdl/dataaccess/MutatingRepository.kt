@@ -38,11 +38,11 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
      * Inserts a [List] of entities to the repository. Returns a [List] of [CompletionStage] objects which are
      * each resolved when their respective insert is completed.
      */
-    fun insert(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): List<CompletionStage<TId>>
+    fun insert(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<List<TId>>
 
-    fun update(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<TEntity>
+    fun update(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<Int>
 
-    fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): List<CompletionStage<TEntity>>
+    fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<IntArray>
 }
 
 class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
@@ -65,9 +65,9 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 ) : MutatingRepository<TEntity, TId, PgClientExecutionInfo> {
     private val logger: Logger? = Logger.getLogger(this.javaClass.name)
 
-    override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<TEntity> = update(listOf(entity), executionInfo).first()
+    override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<Int> = update(listOf(entity), executionInfo).thenApply { it.first() }
 
-    override fun update(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): List<CompletionStage<TEntity>> {
+    override fun update(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): CompletionStage<IntArray> {
         val fieldListNoId = table.fieldsWithoutIdentity()
         val fieldListPlusId = listOf(*fieldListNoId.toTypedArray(), table.identity.field)
 
@@ -79,11 +79,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
         // Modify the current query to specify the ID for the rows to update and return all fields for the updated
         // records
-        val query = updateQueryInfo.where(field("ID").eq("")).returning(fieldListPlusId)
+        val query = updateQueryInfo.where(field("ID").eq(""))//.returning(fieldListPlusId)
 
         // Array of CompletableFuture instances to be resolved in order with the updated contents of the entities passed
         // in to be updated. This allows us to ensure that the entities are as expected.
-        val futures = Array(size = entities.size) { CompletableFuture<TEntity>() }
+        val future = CompletableFuture<IntArray>()
 
         val sql = query.getSqlWithNumberedParams(fieldListPlusId.size)
 
@@ -93,45 +93,26 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // otherwise use the constructor injected client, which will perform queries outside of a transaction.
         val client = executionInfo?.pgClient ?: pgClient
 
-        executeQuery(sql, client, batch, { throwable -> futures.forEach { it.completeExceptionally(throwable) } }) { asyncResultRowSet ->
+        executeQuery(sql, client, batch, { throwable -> future.completeExceptionally(throwable) }) { asyncResultRowSet ->
             logger?.log(Level.FINE, "Successfully executed query")
 
-            val mutableEntityList = entities.toMutableList()
+            // Iterate over each result set finding the count of entities affected.
+            val result = asyncResultRowSet.map { rowset ->
+                println("Rowset count = ${rowset.value().size()}")
+                rowset.map { it.size() }
+            }.result()
 
-            val mappings = tableFieldMapper.mapEntityPropertiesToTableFields(
-                    entities.first().javaClass.kotlin.memberProperties,
-                    fieldListPlusId
-            )
-
-            // Iterate over each result set, there should be one per entity we insert.
-            asyncResultRowSet.forEachIndexed { index, result ->
-                println("Rowset count = ${result.value().size()}")
-                val row = result.value().first()
-                val foundIndex = mutableEntityList.indexOfFirst { it.id == row.getValue(table.identity.field.name) }
-
-                logger?.log(Level.FINEST, "index is equal to found index: ${index == foundIndex}")
-
-                val entity = mutableEntityList.removeAt(foundIndex)
-
-                mappings.forEachIndexed { index, property ->
-                    val value = row.getValue(fieldListPlusId[index].name)
-                    if (property is KMutableProperty<*>) {
-                        property.setter.call(entity, value)
-                    }
-                }
-
-                futures[index].complete(entity)
-            }
+            future.complete(result.toIntArray())
         }
 
-        return futures.toList()
+        return future
     }
 
     override fun insert(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<TId> {
-        return insert(listOf(entity), executionInfo).first()
+        return insert(listOf(entity), executionInfo).thenApply { it.first() }
     }
 
-    override fun insert(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): List<CompletionStage<TId>> {
+    override fun insert(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): CompletionStage<List<TId>> {
         // Need to exclude ID field from fieldList if we are not inserting it but only retrieving it.
         // However, for this to be the case all entities should have null ID field. It's not possible to mix and
         // match some with ID and some without.
@@ -156,8 +137,9 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // Modify the current query to return the ID field for the inserted records
         val query = insertQueryInfo.returning(table.identity.field)
 
-        // Array of CompletableFuture instances to be resolved in order with the IDs of the inserted entities.
-        val futures = Array(size = entities.size) { CompletableFuture<TId>() }
+        // Future to be completed with the list of IDs returned from the newly inserted entities.
+        val future = CompletableFuture<List<TId>>()
+
 
         val sql = query.getSqlWithNumberedParams(fieldList.size)
 
@@ -166,44 +148,44 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // If an execution info has been specified then use the client from that as it may be part of a transaction,
         // otherwise use the constructor injected client, which will perform queries outside of a transaction.
         val client = executionInfo?.pgClient ?: pgClient
+        val getRowIdentityValue = getRowIdentityValueFunc()
+
+        // Select the appropriate function to perform completion of promises for the insert of the batch
+        // inserted entities. The function is selected by the type of the primary key field. This will
+        // not work with composite keys.
+        // The completion function is selected to avoid having to recalculate on each entity insertion;
+        // currently we only support batch inserts to the same table.
 
         executeQuery(sql, client, batch, { throwable ->
-            futures.forEachIndexed { index, future ->
-                logger?.log(Level.INFO, "Completing exceptionally future $index")
-                future.completeExceptionally(throwable)
-            }
+            logger?.log(Level.INFO, "Query failed with exception ${throwable.cause}")
+            future.completeExceptionally(throwable)
         }
         ) { asyncResultRowSet ->
             // Iterate over each result set, there should be one per entity we insert.
-            asyncResultRowSet.forEachIndexed { index, result ->
+            val result = asyncResultRowSet.map { result ->
                 // Within each result set iterate over each row.
                 // There should only be one row for an insert.
-                // Select the appropriate function to perform completion of promises for the insert of the batch
-                // inserted entities. The function is selected by the type of the primary key field. This will
-                // not work with composite keys.
-                // The completion function is selected to avoid having to recalculate on each entity insertion;
-                // currently we only support batch inserts to the same table.
-                val completeEntityInsertPromise: (Row) -> Unit = when (table.identity.field.type.kotlin) {
-                    Long::class -> { row ->
-                        val future = futures[index] as CompletableFuture<Long>
-                        future.complete(row.getLong(0))
-                    }
-                    UUID::class -> { row ->
-                        val future = futures[index] as CompletableFuture<UUID>
-                        future.complete(row.getUUID(0))
-                    }
-                    else -> { row ->
-                        row.getValue(0) as Any
-                    }
-                }
+                result.map { getRowIdentityValue(it) }.toList()
+            }.result()
 
-                result.forEach { completeEntityInsertPromise(it) }
-            }
+            future.complete(result)
         }
 
-        return futures.map {
-            it.minimalCompletionStage() as? CompletionStage<TId> ?: throw Exception("Type system is rubbish")
-        }.toList()
+        return future
+    }
+
+    private fun getRowIdentityValueFunc(): (Row) -> TId {
+        return when (table.identity.field.type.kotlin) {
+            Long::class -> { row ->
+                row.getLong(0) as TId
+            }
+            UUID::class -> { row ->
+                row.getUUID(0) as TId
+            }
+            else -> { row ->
+                row.getValue(0) as TId
+            }
+        }
     }
 
     protected fun executeQuery(
