@@ -34,35 +34,33 @@ interface CustomerService {
 
     fun insert(customer: Customer): CompletionStage<CustomerID>
 
-    fun update(customer: Customer): CompletionStage<Customer>
+    fun update(cusromer: Customer): CompletionStage<Customer>
 
     fun update(customers: List<Customer>): CompletionStage<List<Customer>>
 }
 
 /**
  * Concrete implementation of [see CustomerService]
+ * TODO: Add error handling on not all entity updates/inserts succeeding as determined possibly by inaccurate counts
  */
 @Service
 class DefaultCustomerService(private val customerRepository: CustomerRepository)
     : CustomerService {
-    override fun update(customer: Customer) = customerRepository.update(customer)
+    override fun update(customer: Customer): CompletionStage<Customer> = customerRepository.update(customer).thenApply { customer }
 
     override fun update(customers: List<Customer>): CompletionStage<List<Customer>> {
-        val customerFutures = customerRepository.update(customers).map { it.toCompletableFuture() }.toTypedArray()
-
-        return allOf(*customerFutures).thenCompose<List<Customer>> {
-            completedFuture<List<Customer>>(customerFutures.map { it.get() })
-        }
+        return customerRepository.update(customers)
+                .thenApply {
+                    customers
+                }
     }
 
     override fun insert(customer: Customer) = customerRepository.insert(customer)
 
-    override fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>> {
-        val customerFutures = customerRepository.insert(customers).map { it.toCompletableFuture() }.toTypedArray()
-
-        return allOf(*customerFutures).thenCompose<List<CustomerID>> {
-            completedFuture<List<CustomerID>>(customerFutures.map { it.get() })
-        }
+    override fun insert(customers: List<Customer>): CompletionStage<List<CustomerID>> = customerRepository.insert(customers).thenApply {
+        customers.map {
+            it.id ?: throw NullPointerException()
+        }.toList()
     }
 
     override fun findAll(requestInfo: EntityRequestInfo?) = customerRepository.findAll(requestInfo)

@@ -1,6 +1,7 @@
 package com.yg.gqlwfdl.dataaccess
 
 import com.opidis.unitofwork.data.ExecutionInfo
+import com.yg.gqlwfdl.getLogger
 import com.yg.gqlwfdl.services.Entity
 import io.reactiverse.pgclient.*
 import io.reactiverse.pgclient.Row
@@ -11,9 +12,7 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
-import java.util.logging.Logger
 import kotlin.reflect.KCallable
-import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.memberProperties
 
 /**
@@ -63,7 +62,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
 ) : MutatingRepository<TEntity, TId, PgClientExecutionInfo> {
-    private val logger: Logger? = Logger.getLogger(this.javaClass.name)
+    private val logger = getLogger()
 
     override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<Int> = update(listOf(entity), executionInfo).thenApply { it.first() }
 
@@ -97,12 +96,9 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             logger?.log(Level.FINE, "Successfully executed query")
 
             // Iterate over each result set finding the count of entities affected.
-            val result = asyncResultRowSet.map { rowset ->
-                println("Rowset count = ${rowset.value().size()}")
-                rowset.map { it.size() }
-            }.result()
+            val updateCount = asyncResultRowSet.result().updatedCount()
 
-            future.complete(result.toIntArray())
+            future.complete(intArrayOf(updateCount))
         }
 
         return future
@@ -165,6 +161,19 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             future.completeExceptionally(throwable)
         }
         ) { asyncResultRowSet ->
+            val rows = asyncResultRowSet.flattenRows()
+            val ids = rows.map(getRowIdentityValue)
+
+            // If the entity was not specified during insert then we should populate the entities with it.
+            if (entityIdsNotSpecified) {
+                ids.forEachIndexed { index, id ->
+                    entities[index].id = id
+                }
+            }
+
+            future.complete(ids)
+        }
+        /*) { asyncResultRowSet ->
             // Iterate over each result set, there should be one per entity we insert.
             val result = asyncResultRowSet.map { result ->
                 // Within each result set iterate over each row.
@@ -179,8 +188,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
                 }
             }
 
+            asyncResultRowSet.forEachIndexed()
+
             future.complete(result)
         }
+        */
 
         return future
     }

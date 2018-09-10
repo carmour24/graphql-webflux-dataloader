@@ -3,6 +3,7 @@ package com.yg.gqlwfdl.unitofwork
 import com.opidis.unitofwork.data.QueryCoordinator
 import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
 import com.yg.gqlwfdl.getLogger
+import io.reactiverse.pgclient.PgConnection
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.PgTransaction
 import org.springframework.stereotype.Component
@@ -34,22 +35,26 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
     }
 
     override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): () -> Unit {
+        var connection: PgConnection? = null
+        var transaction: PgTransaction? = null
+
         pgPool.getConnection { connectionResult ->
             if (connectionResult.failed()) {
                 logger?.log(Level.SEVERE, "Failed to get connection ${connectionResult.cause()}")
                 throw connectionResult.cause()
             }
 
-            val connection = connectionResult.result()
+            connection = connectionResult.result()
 
-            val transaction = connection.begin()
+            connection!!.begin()
 
-            val executionInfo = PgClientExecutionInfo(connection)
+            val executionInfo = PgClientExecutionInfo(connection!!)
 
             transactional(executionInfo)
-
-            transaction.commit()
         }
-        return {}
+        return {
+            transaction!!.commit()
+            connection!!.close()
+        }
     }
 }
