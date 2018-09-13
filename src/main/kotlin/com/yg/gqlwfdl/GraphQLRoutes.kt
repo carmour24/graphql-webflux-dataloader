@@ -100,7 +100,7 @@ class GraphQLRoutes(customerService: CustomerService,
 
         val graphQL = GraphQL
                 .newGraphQL(schema)
-                .instrumentation(UnitOfWorkInstrumentation(unitOfWork, registry))
+                .instrumentation(DataLoaderDispatcherInstrumentation(registry))
                 .build()
 
        return fromFuture(graphQL.executeAsync(executionInput))
@@ -167,13 +167,3 @@ class GraphQLRoutes(customerService: CustomerService,
             val variables: Map<String, Any>? = null
     )
 }
-
-class UnitOfWorkInstrumentation(private val unitOfWork: UnitOfWork, dataLoaderRegistry: DataLoaderRegistry) :
-        DataLoaderDispatcherInstrumentation(dataLoaderRegistry) {
-    override fun beginExecution(parameters: InstrumentationExecutionParameters?): InstrumentationContext<ExecutionResult> {
-        return super.beginExecution(parameters)
-    }
-    override fun instrumentExecutionResult(executionResult: ExecutionResult?, parameters: InstrumentationExecutionParameters?): CompletableFuture<ExecutionResult> {
-        return super.instrumentExecutionResult(executionResult, parameters)
-    }
-        }
