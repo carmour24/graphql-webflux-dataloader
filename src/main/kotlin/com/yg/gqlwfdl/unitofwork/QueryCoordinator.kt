@@ -13,6 +13,7 @@ import java.util.concurrent.CompletionStage
 import java.util.logging.Level
 import java.util.logging.Logger
 
+typealias TransactionCompletion = () -> CompletableFuture<Void>
 
 @Component
 class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryAction, PgClientExecutionInfo> {
@@ -34,7 +35,7 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
         }
     }
 
-    override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): () -> Unit {
+    override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): TransactionCompletion {
         var connection: PgConnection? = null
         var transaction: PgTransaction? = null
 
@@ -44,17 +45,33 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
                 throw connectionResult.cause()
             }
 
-            connection = connectionResult.result()
+            val localConnection = connectionResult.result()
+            connection = localConnection
 
-            connection!!.begin()
+            transaction = localConnection.begin()
 
-            val executionInfo = PgClientExecutionInfo(connection!!)
+            val executionInfo = PgClientExecutionInfo(localConnection)
 
             transactional(executionInfo)
         }
-        return {
-            transaction!!.commit()
-            connection!!.close()
+        return { commitTransactionAndReturnConnectionToPool(transaction!!, connection!!) }
+    }
+
+    fun commitTransactionAndReturnConnectionToPool(transaction: PgTransaction, connection: PgConnection) : CompletableFuture<Void> {
+        val future = CompletableFuture<Void>()
+
+        transaction.commit {
+            logger?.log(Level.FINE, "Transaction committed")
+
+            connection.exceptionHandler {
+                logger?.log(Level.FINE, "Exception $it")
+            }
+
+            connection.close()
+
+            future.complete(null)
         }
+
+        return future
     }
 }

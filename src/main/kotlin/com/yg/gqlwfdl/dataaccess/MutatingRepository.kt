@@ -12,21 +12,12 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
-import kotlin.reflect.KCallable
 import kotlin.reflect.full.memberProperties
 
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
  */
 interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
-    fun <TEntity : Entity<*>, TRecord : Record> EntityRepository<*, *>.newRecordFrom(entity: TEntity,
-                                                                                     createRecord: KCallable<TRecord>):
-            TRecord {
-        val record = createRecord.call()
-        record.from(entity)
-        return record
-    }
-
     /**
      * Inserts a [TEntity] to the repository. Returns a [CompletableFuture] object which is resolved when the insert
      * is completed.
@@ -42,6 +33,10 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
     fun update(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<Int>
 
     fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<IntArray>
+
+    fun delete(entities: List<TEntity>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
+
+//    fun delete(entities: List<TId>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
 }
 
 class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
@@ -88,17 +83,17 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
         logger?.log(Level.FINE, "Generated query string for update: \n$sql")
 
-        // If an execution info has been specified then use the client from that as it may be part of a transaction,
-        // otherwise use the constructor injected client, which will perform queries outside of a transaction.
-        val client = executionInfo?.pgClient ?: pgClient
-
-        executeQuery(sql, client, batch, { throwable -> future.completeExceptionally(throwable) }) { asyncResultRowSet ->
+        executeQuery(sql, executionInfo, batch, makeFailureAction(future)) { asyncResultRowSet ->
             logger?.log(Level.FINE, "Successfully executed query")
 
+            val resultList = emptyList<Int>().toMutableList()
             // Iterate over each result set finding the count of entities affected.
-            val updateCount = asyncResultRowSet.result().updatedCount()
 
-            future.complete(intArrayOf(updateCount))
+            asyncResultRowSet.forEachRowSet {
+                resultList.add(it.updatedCount())
+            }
+
+            future.complete(resultList.toIntArray())
         }
 
         return future
@@ -147,7 +142,6 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
         // If an execution info has been specified then use the client from that as it may be part of a transaction,
         // otherwise use the constructor injected client, which will perform queries outside of a transaction.
-        val client = executionInfo?.pgClient ?: pgClient
         val getRowIdentityValue = getRowIdentityValueFunc()
 
         // Select the appropriate function to perform completion of promises for the insert of the batch
@@ -156,11 +150,8 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         // The completion function is selected to avoid having to recalculate on each entity insertion;
         // currently we only support batch inserts to the same table.
 
-        executeQuery(sql, client, batch, { throwable ->
-            logger?.log(Level.INFO, "Query failed with exception ${throwable.cause}")
-            future.completeExceptionally(throwable)
-        }
-        ) { asyncResultRowSet ->
+
+        executeQuery(sql, executionInfo, batch, makeFailureAction(future)) { asyncResultRowSet ->
             val rows = asyncResultRowSet.flattenRows()
             val ids = rows.map(getRowIdentityValue)
 
@@ -197,6 +188,26 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         return future
     }
 
+    override fun delete(entities: List<TEntity>, executionInfo: PgClientExecutionInfo?): CompletionStage<IntArray> {
+        val ids = entities.map { Tuple.of(it.id) }
+
+        val sql = create
+                .delete(table)
+                .where(table.identity.field.`in`(ids))
+                .getSqlWithNumberedParams(1)
+
+        val future = CompletableFuture<IntArray>()
+        executeQuery(sql, executionInfo, ids, makeFailureAction(future)) { asyncResultRowSet ->
+            val listOfUpdateCounts = asyncResultRowSet.mapRowSet {
+                it.updatedCount()
+            }
+
+            future.complete(listOfUpdateCounts.toIntArray())
+        }
+
+        return future
+    }
+
     private fun getRowIdentityValueFunc(): (Row) -> TId {
         return when (table.identity.field.type.kotlin) {
             Long::class -> { row ->
@@ -213,11 +224,15 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
 
     protected fun executeQuery(
             sql: String,
-            client: PgClient,
+            executionInfo: PgClientExecutionInfo?,
             batch: List<Tuple>,
             failureAction: (Throwable) -> Unit,
             successAction: (AsyncResult<PgRowSet>) -> Unit
     ) {
+        // If an execution info has been specified then use the client from that as it may be part of a transaction,
+        // otherwise use the constructor injected client, which will perform queries outside of a transaction.
+        val client = executionInfo?.pgClient ?: pgClient
+
         client.preparedBatch(sql, batch) { asyncResultRowSet ->
             if (asyncResultRowSet.failed()) {
                 logger?.log(Level.SEVERE, "Failed to execute query ${asyncResultRowSet.cause()}")
@@ -254,7 +269,43 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
         return (queryInfo to batch)
     }
 
+    private fun makeFailureAction(future: CompletableFuture<*>): (Throwable) -> Unit {
+        return { throwable ->
+            logger?.log(Level.INFO, "Query failed with exception ${throwable.cause}")
+            future.completeExceptionally(throwable)
+        }
+    }
+
+
     // Extension method to retrieve all table fields excluding the identity field. Useful for updates, and inserts
-    // when the identity field is already specified.
+// when the identity field is already specified.
     private fun Table<*>.fieldsWithoutIdentity() = fields().filter { it != table.identity.field }.toList()
+
+    private fun AsyncResult<PgRowSet>.forEachRowSet(handler: (PgRowSet) -> Unit) {
+        // Iterate over each result set finding the count of entities affected.
+
+        var result = this.result()
+        while (result != null) {
+            handler(result)
+            result = result.next()
+        }
+    }
+
+    private fun <T> AsyncResult<PgRowSet>.mapRowSet(mapper: (PgRowSet) -> T): List<T> {
+        val list = emptyList<T>().toMutableList()
+
+        forEachRowSet { list.add(mapper(it)) }
+
+        return list
+    }
+
 }
+
+//fun <TEntity : Entity<*>, TRecord : Record> MutatingRepository<*, *, *>.newRecordFrom(entity: TEntity,
+//                                                                                 createRecord: KCallable<TRecord>):
+//        TRecord {
+//    val record = createRecord.call()
+//    record.from(entity)
+//    return record
+//}
+

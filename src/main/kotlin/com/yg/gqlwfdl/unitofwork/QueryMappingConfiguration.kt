@@ -29,7 +29,7 @@ class QueryMappingConfiguration(private val customerRepository: CustomerReposito
 
     private fun queryForCustomers(changeType: ChangeType, customerEntities: List<Customer>): QueryAction {
         return when (changeType) {
-            ChangeType.Delete -> { executionInfo -> throw NotImplementedError() }
+            ChangeType.Delete -> { executionInfo -> customerRepository.delete(customerEntities, executionInfo) }
             ChangeType.Update -> { executionInfo -> customerRepository.update(customerEntities, executionInfo) }
             ChangeType.Insert -> { executionInfo ->
                 customerRepository.insert(customerEntities, executionInfo)

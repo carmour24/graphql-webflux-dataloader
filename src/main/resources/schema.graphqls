@@ -87,6 +87,7 @@ input OrderLineInput {
 
 type Mutation {
    createTestData: String
+   deleteCustomers(customerIds: [ID]) : [Boolean]
    createCustomer(customer: CustomerInput): ID!
    createCustomers(customers: [CustomerInput]): [ID]
    updateCustomer(customer: CustomerInput): Customer

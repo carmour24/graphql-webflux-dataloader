@@ -14,13 +14,13 @@ class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoor
 
     override fun complete(): CompletionStage<Void> {
         // Run through all entities checking for changes and inserting them into the changed entity list
-        val completionStages = hashMap.map { (entity, hashCode) ->
+        hashMap.mapNotNull { (entity, hashCode) ->
             if (entity.hashCode() != hashCode) {
                 this.trackChange(entity)
             } else {
                 null
             }
-        }.filterNotNull()
+        }
 
         return super.complete()
     }

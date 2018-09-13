@@ -11,6 +11,11 @@ import com.yg.gqlwfdl.services.CustomerService
 import com.yg.gqlwfdl.unitofwork.QueryAction
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.schema.DataFetchingEnvironment
+import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.awaitAll
+import kotlinx.coroutines.experimental.future.asCompletableFuture
+import kotlinx.coroutines.experimental.future.await
+import kotlinx.coroutines.experimental.future.toCompletableFuture
 import reactor.core.publisher.Mono
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
@@ -42,9 +47,10 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
 
         val unitOfWork = env.requestContext.unitOfWork
 
-        val customerIds = customersInput.mapNotNull { it.id }
-        return customerService.findByIds(customerIds).thenApply {
-            it.forEach { customer ->
+        return async {
+            val customerIds = customersInput.mapNotNull { it.id }
+            val customers = customerService.findByIds(customerIds).await()
+            customers.forEach { customer ->
                 unitOfWork.trackEntityForChanges(customer)
                 val customerInput = customersInput.find { it.id == customer.id }
 
@@ -58,28 +64,20 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
                     }
                 }
             }
-        }.thenCompose {
-            unitOfWork.complete()
 
-            customerService.findByIds(customerIds)
-        }
+            unitOfWork.complete().await()
+
+            customerService.findByIds(customerIds).await()
+        }.asCompletableFuture()
     }
 
-    fun updateCustomer(customerInput: CustomerInput): CompletionStage<Customer> {
-        val customer = with(customerInput) {
-            Customer(
-                    id = id,
-                    firstName = firstName,
-                    lastName = lastName,
-                    companyId = company,
-                    pricingDetailsId = pricingDetails,
-                    outOfOfficeDelegate = outOfOfficeDelegate
-            )
-        }
-        return customerService.update(customer)
+    fun updateCustomer(customerInput: CustomerInput, env: DataFetchingEnvironment): CompletionStage<Customer> {
+        return async {
+            updateCustomers(listOf(customerInput), env).await().first()
+        }.asCompletableFuture()
     }
 
-    fun createCustomer(customerInput: CustomerInput): CompletionStage<CustomerID> {
+    fun createCustomer(customerInput: CustomerInput, env: DataFetchingEnvironment): CompletionStage<CustomerID> {
         val customer = with(customerInput) {
             Customer(
                     id = null,
@@ -90,10 +88,17 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
                     outOfOfficeDelegate = outOfOfficeDelegate
             )
         }
-        return customerService.insert(customer)
+
+        val unitOfWork = env.requestContext.unitOfWork
+        unitOfWork.trackNew(customer)
+
+        return unitOfWork.complete().thenApply {
+            customer.id ?: throw NullPointerException("Customer should be persisted and ID set on entity " +
+                    "prior to completing the create customer operation")
+        }
     }
 
-    fun createCustomers(customersInput: List<CustomerInput>): CompletionStage<List<CustomerID>> {
+    fun createCustomers(customersInput: List<CustomerInput>, env: DataFetchingEnvironment): CompletionStage<List<CustomerID>> {
         val customers = customersInput.map {
             with(it) {
                 Customer(
@@ -107,7 +112,30 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
             }
         }
 
-        return customerService.insert(customers)
+        val unitOfWork = env.requestContext.unitOfWork
+        customers.forEach { unitOfWork.trackNew(it) }
+
+        return unitOfWork.complete().thenApply {
+            customers.map { customer ->
+                customer.id ?: throw NullPointerException("Customer should be persisted and ID set on entity " +
+                        "prior to completing the create customer operation")
+            }
+        }
+    }
+
+    fun deleteCustomers(customerIds: List<CustomerID>, env: DataFetchingEnvironment): CompletionStage<List<Boolean>> {
+        return async {
+            val unitOfWork = env.requestContext.unitOfWork
+
+            val customers = customerService.findByIds(customerIds).await()
+
+            val tracking = customers.map { unitOfWork.trackDelete(it) }
+
+
+            val deleteResults = tracking.map { it.await() == 1 }
+
+            deleteResults
+        }.asCompletableFuture()
     }
 
     fun createOrder(order: OrderInput): Long {
