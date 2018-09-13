@@ -65,8 +65,6 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
                 }
             }
 
-            unitOfWork.complete().await()
-
             customerService.findByIds(customerIds).await()
         }.asCompletableFuture()
     }
@@ -90,6 +88,9 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
         }
 
         val unitOfWork = env.requestContext.unitOfWork
+
+        // Manually tracking customer creation here, in actual use this would probably be done by creating the customer
+        // through a factory, possibly attached to the unit of work itself.
         unitOfWork.trackNew(customer)
 
         return unitOfWork.complete().thenApply {
@@ -112,6 +113,8 @@ class Mutation(private val dbConfig: DBConfig, private val customerService: Cust
             }
         }
 
+        // Manually tracking customer creation here, in actual use this would probably be done by creating the customer
+        // through a factory, possibly attached to the unit of work itself.
         val unitOfWork = env.requestContext.unitOfWork
         customers.forEach { unitOfWork.trackNew(it) }
 

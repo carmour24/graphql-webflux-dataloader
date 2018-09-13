@@ -48,7 +48,8 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
             val localConnection = connectionResult.result()
             connection = localConnection
 
-            transaction = localConnection.begin()
+            // If a transaction does not already exist then start a new one
+            transaction = transaction ?: localConnection.begin()
 
             val executionInfo = PgClientExecutionInfo(localConnection)
 

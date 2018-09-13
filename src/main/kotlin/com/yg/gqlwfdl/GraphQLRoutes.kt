@@ -14,9 +14,13 @@ import graphql.ExecutionInput
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
+import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation
+import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions
+import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters
 import graphql.schema.GraphQLSchema
 import org.dataloader.DataLoader
+import org.dataloader.DataLoaderOptions
 import org.dataloader.DataLoaderRegistry
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -30,6 +34,8 @@ import org.springframework.web.reactive.function.server.router
 import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.*
 import java.net.URLDecoder
+import java.util.concurrent.CompletableFuture
+import java.util.logging.Level
 
 private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 
@@ -80,7 +86,6 @@ class GraphQLRoutes(customerService: CustomerService,
         val requestContext = RequestContext(registry, unitOfWork)
         dataLoaderFactory.createAllAndRegister(registry, requestContext)
 
-
         val executionInput = newExecutionInput()
                 .query(graphQLParameters.query)
                 .operationName(graphQLParameters.operationName)
@@ -95,70 +100,80 @@ class GraphQLRoutes(customerService: CustomerService,
 
         val graphQL = GraphQL
                 .newGraphQL(schema)
-                .instrumentation(DataLoaderDispatcherInstrumentation(registry))
+                .instrumentation(UnitOfWorkInstrumentation(unitOfWork, registry))
                 .build()
 
-        return fromFuture(graphQL.executeAsync(executionInput))
+       return fromFuture(graphQL.executeAsync(executionInput))
     }
+
+    private fun getGraphQLParameters(req: ServerRequest): Mono<GraphQLParameters> = when {
+        req.queryParam("query").isPresent -> graphQLParametersFromRequestParameters(req)
+        req.method() == HttpMethod.POST -> parsePostRequest(req)
+        else -> empty()
+    }
+
+    private fun parsePostRequest(req: ServerRequest) = when {
+        req.contentTypeIs(GraphQLMediaType) -> req.withBody { GraphQLParameters(query = it) }
+        else -> req.withBody { readJson<GraphQLParameters>(it) }
+    }
+
+    private fun graphQLParametersFromRequestParameters(req: ServerRequest) = just(
+            GraphQLParameters(
+                    query = req.queryParam("query").get(),
+                    operationName = req.queryParam("operationName").orElseGet { null },
+                    variables = getVariables(req)
+            )
+    )
+
+    private fun getVariables(req: ServerRequest): Map<String, Any>? {
+        return req.queryParam("variables")
+                .map { URLDecoder.decode(it, "UTF-8") }
+                .map { readJsonMap(it) }
+                .orElseGet { null }
+    }
+
+    /**
+     * Reads the GraphQL schema (resources/schema.graphqls), sets up the resolvers for it, builds it, and returns it.
+     * This operation can be expensive so is done once, on application startup.
+     */
+    private fun buildSchema(customerService: CustomerService,
+                            companyService: CompanyService,
+                            companyPartnershipService: CompanyPartnershipService,
+                            productService: ProductService,
+                            orderService: OrderService,
+                            dbConfig: DBConfig): GraphQLSchema {
+
+        return SchemaParser.newParser()
+                .file("schema.graphqls")
+                .resolvers(
+                        Query(customerService, companyService, companyPartnershipService, productService, orderService),
+                        CustomerResolver(),
+                        CompanyResolver(),
+                        PricingDetailsResolver(),
+                        ProductResolver(),
+                        OrderResolver(),
+                        Mutation(dbConfig, customerService))
+                .dictionary("OrderLine", Order.Line::class.java)
+                .options(SchemaParserOptions.newOptions()
+                        .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))
+                        .build())
+                .build()
+                .makeExecutableSchema()
+    }
+
+    private data class GraphQLParameters(
+            val query: String,
+            val operationName: String? = null,
+            val variables: Map<String, Any>? = null
+    )
 }
 
-private fun getGraphQLParameters(req: ServerRequest): Mono<GraphQLParameters> = when {
-    req.queryParam("query").isPresent -> graphQLParametersFromRequestParameters(req)
-    req.method() == HttpMethod.POST -> parsePostRequest(req)
-    else -> empty()
-}
-
-private fun parsePostRequest(req: ServerRequest) = when {
-    req.contentTypeIs(GraphQLMediaType) -> req.withBody { GraphQLParameters(query = it) }
-    else -> req.withBody { readJson<GraphQLParameters>(it) }
-}
-
-private fun graphQLParametersFromRequestParameters(req: ServerRequest) = just(
-        GraphQLParameters(
-                query = req.queryParam("query").get(),
-                operationName = req.queryParam("operationName").orElseGet { null },
-                variables = getVariables(req)
-        )
-)
-
-private fun getVariables(req: ServerRequest): Map<String, Any>? {
-    return req.queryParam("variables")
-            .map { URLDecoder.decode(it, "UTF-8") }
-            .map { readJsonMap(it) }
-            .orElseGet { null }
-}
-
-/**
- * Reads the GraphQL schema (resources/schema.graphqls), sets up the resolvers for it, builds it, and returns it.
- * This operation can be expensive so is done once, on application startup.
- */
-private fun buildSchema(customerService: CustomerService,
-                        companyService: CompanyService,
-                        companyPartnershipService: CompanyPartnershipService,
-                        productService: ProductService,
-                        orderService: OrderService,
-                        dbConfig: DBConfig): GraphQLSchema {
-
-    return SchemaParser.newParser()
-            .file("schema.graphqls")
-            .resolvers(
-                    Query(customerService, companyService, companyPartnershipService, productService, orderService),
-                    CustomerResolver(),
-                    CompanyResolver(),
-                    PricingDetailsResolver(),
-                    ProductResolver(),
-                    OrderResolver(),
-                    Mutation(dbConfig, customerService))
-            .dictionary("OrderLine", Order.Line::class.java)
-            .options(SchemaParserOptions.newOptions()
-                    .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))
-                    .build())
-            .build()
-            .makeExecutableSchema()
-}
-
-private data class GraphQLParameters(
-        val query: String,
-        val operationName: String? = null,
-        val variables: Map<String, Any>? = null
-)
+class UnitOfWorkInstrumentation(private val unitOfWork: UnitOfWork, dataLoaderRegistry: DataLoaderRegistry) :
+        DataLoaderDispatcherInstrumentation(dataLoaderRegistry) {
+    override fun beginExecution(parameters: InstrumentationExecutionParameters?): InstrumentationContext<ExecutionResult> {
+        return super.beginExecution(parameters)
+    }
+    override fun instrumentExecutionResult(executionResult: ExecutionResult?, parameters: InstrumentationExecutionParameters?): CompletableFuture<ExecutionResult> {
+        return super.instrumentExecutionResult(executionResult, parameters)
+    }
+        }
