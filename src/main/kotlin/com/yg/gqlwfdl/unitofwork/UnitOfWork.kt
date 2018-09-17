@@ -3,11 +3,17 @@ package com.yg.gqlwfdl.unitofwork
 import com.opidis.unitofwork.data.DefaultEntityTrackingUnitOfWork
 import com.opidis.unitofwork.data.Entity
 import com.yg.gqlwfdl.dataaccess.PgClientExecutionInfo
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 
 class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoordinator: QueryCoordinator) :
-        DefaultEntityTrackingUnitOfWork<QueryAction, PgClientExecutionInfo>(queryMappingConfiguration, queryCoordinator){
+        DefaultEntityTrackingUnitOfWork<QueryAction, PgClientExecutionInfo>(queryMappingConfiguration, queryCoordinator) {
     private val hashMap = HashMap<Entity, Int>()
+    private var future = CompletableFuture<Void>()
+
+    val completionStage: CompletionStage<Void>
+        get() = future
+
     fun trackEntityForChanges(entity: Entity) {
         hashMap[entity] = entity.hashCode()
     }
@@ -22,6 +28,13 @@ class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoor
             }
         }
 
-        return super.complete()
+        val completion = super.complete()
+
+        completion.whenComplete { t, u ->
+            future.complete(null)
+//            future = CompletableFuture()
+        }
+
+        return completion
     }
 }

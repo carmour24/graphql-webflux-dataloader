@@ -2,7 +2,6 @@ package com.yg.gqlwfdl
 
 import com.coxautodev.graphql.tools.SchemaParser
 import com.coxautodev.graphql.tools.SchemaParserOptions
-import com.opidis.unitofwork.data.DefaultEntityTrackingUnitOfWork
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.dataloaders.DataLoaderFactory
 import com.yg.gqlwfdl.resolvers.*
@@ -14,13 +13,9 @@ import graphql.ExecutionInput
 import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
-import graphql.execution.instrumentation.InstrumentationContext
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation
-import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters
 import graphql.schema.GraphQLSchema
 import org.dataloader.DataLoader
-import org.dataloader.DataLoaderOptions
 import org.dataloader.DataLoaderRegistry
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -35,7 +30,8 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.*
 import java.net.URLDecoder
 import java.util.concurrent.CompletableFuture
-import java.util.logging.Level
+import java.util.concurrent.CompletableFuture.allOf
+import java.util.concurrent.CompletionStage
 
 private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 
@@ -103,7 +99,7 @@ class GraphQLRoutes(customerService: CustomerService,
                 .instrumentation(DataLoaderDispatcherInstrumentation(registry))
                 .build()
 
-       return fromFuture(graphQL.executeAsync(executionInput))
+        return fromFuture(graphQL.executeAsync(executionInput))
     }
 
     private fun getGraphQLParameters(req: ServerRequest): Mono<GraphQLParameters> = when {
@@ -143,6 +139,18 @@ class GraphQLRoutes(customerService: CustomerService,
                             orderService: OrderService,
                             dbConfig: DBConfig): GraphQLSchema {
 
+        val unitOfWorkCompletionWrapper =
+                SchemaParserOptions.GenericWrapper.withTransformer(CompletableFuture::class, 0) {
+                    mutation, env ->
+                    val uowFuture = env.requestContext.unitOfWork.complete()
+                    mutation.whenComplete { t, u -> println("mutation complete") }
+                    uowFuture.whenComplete { t, u -> println("uow complete") }
+
+                    allOf(uowFuture.toCompletableFuture(), mutation).thenApply {
+                        mutation.get()
+                    }
+                }
+
         return SchemaParser.newParser()
                 .file("schema.graphqls")
                 .resolvers(
@@ -155,7 +163,8 @@ class GraphQLRoutes(customerService: CustomerService,
                         Mutation(dbConfig, customerService))
                 .dictionary("OrderLine", Order.Line::class.java)
                 .options(SchemaParserOptions.newOptions()
-                        .genericWrappers(SchemaParserOptions.GenericWrapper(Mono::class.java, 0))
+                        .genericWrappers(unitOfWorkCompletionWrapper, SchemaParserOptions.GenericWrapper(Mono::class
+                                .java, 1))
                         .build())
                 .build()
                 .makeExecutableSchema()

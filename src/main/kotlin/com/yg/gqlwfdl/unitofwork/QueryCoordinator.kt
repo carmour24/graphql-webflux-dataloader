@@ -11,13 +11,14 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletableFuture.allOf
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
-import java.util.logging.Logger
 
 typealias TransactionCompletion = () -> CompletableFuture<Void>
 
 @Component
 class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryAction, PgClientExecutionInfo> {
     private val logger by lazy { getLogger() }
+    var connection: PgConnection? = null
+    var transaction: PgTransaction? = null
 
     override fun batchExecute(queries: List<QueryAction>, executionInfo: PgClientExecutionInfo?):
             CompletionStage<IntArray> {
@@ -36,9 +37,6 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
     }
 
     override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): TransactionCompletion {
-        var connection: PgConnection? = null
-        var transaction: PgTransaction? = null
-
         pgPool.getConnection { connectionResult ->
             if (connectionResult.failed()) {
                 logger?.log(Level.SEVERE, "Failed to get connection ${connectionResult.cause()}")
@@ -49,26 +47,38 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
             connection = localConnection
 
             // If a transaction does not already exist then start a new one
-            transaction = transaction ?: localConnection.begin()
+            transaction = localConnection.begin()
 
             val executionInfo = PgClientExecutionInfo(localConnection)
 
             transactional(executionInfo)
         }
-        return { commitTransactionAndReturnConnectionToPool(transaction!!, connection!!) }
+
+        logger?.log(Level.FINE, "Returning done")
+        return {
+            logger?.log(Level.FINE, "Calling commitTransactionAndReturnConnectionToPool")
+
+            commitTransactionAndReturnConnectionToPool(transaction!!, connection!!) }
     }
 
     fun commitTransactionAndReturnConnectionToPool(transaction: PgTransaction, connection: PgConnection) : CompletableFuture<Void> {
         val future = CompletableFuture<Void>()
 
+        logger?.log(Level.FINE, "Transaction committing")
+
         transaction.commit {
+            if (it.failed()) {
+                logger?.log(Level.SEVERE, "Commit failed ${it.cause()}")
+            }
             logger?.log(Level.FINE, "Transaction committed")
 
             connection.exceptionHandler {
                 logger?.log(Level.FINE, "Exception $it")
             }
 
+            logger?.log(Level.FINER, "Connection closing")
             connection.close()
+            logger?.log(Level.FINER, "Connection closed")
 
             future.complete(null)
         }

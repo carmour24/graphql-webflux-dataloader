@@ -21,7 +21,7 @@ class QueryMappingConfiguration(private val customerRepository: CustomerReposito
     override fun <T : Entity> queryFor(changeType: ChangeType, entities: List<T>): QueryAction {
         when (entities.first()) {
             is Customer -> {
-                return queryForCustomers(changeType, entities.map { it as Customer }.toList())
+                return queryForCustomers(changeType, entities.asSequence().map { it as Customer }.toList())
             }
             else -> throw TypeMappingNotFoundException(entities.first().javaClass.kotlin)
         }
@@ -35,7 +35,8 @@ class QueryMappingConfiguration(private val customerRepository: CustomerReposito
                 customerRepository.insert(customerEntities, executionInfo)
                         .thenCompose { insertedCustomerIDs ->
                             val futureWithCount = CompletableFuture<IntArray>()
-                            futureWithCount.complete(IntArray(insertedCustomerIDs.size, { 1 }))
+                            // TODO: Check for success before completing with 1
+                            futureWithCount.complete(IntArray(insertedCustomerIDs.size) { 1 })
                             futureWithCount
                         }
             }
