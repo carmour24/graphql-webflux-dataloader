@@ -30,8 +30,7 @@ import reactor.core.publisher.Mono
 import reactor.core.publisher.Mono.*
 import java.net.URLDecoder
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletableFuture.allOf
-import java.util.concurrent.CompletionStage
+import java.util.logging.Level
 
 private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 
@@ -52,6 +51,7 @@ class GraphQLRoutes(customerService: CustomerService,
 
     private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService,
             orderService, dbConfig)
+    private val logger = getLogger()
 
     /**
      * Sets up the routes (i.e. handles GET and POST to /graphql, and also serves up the graphiql HTML page).
@@ -139,17 +139,34 @@ class GraphQLRoutes(customerService: CustomerService,
                             orderService: OrderService,
                             dbConfig: DBConfig): GraphQLSchema {
 
-        val unitOfWorkCompletionWrapper =
-                SchemaParserOptions.GenericWrapper.withTransformer(CompletableFuture::class, 0) {
-                    mutation, env ->
-                    val uowFuture = env.requestContext.unitOfWork.complete()
-                    mutation.whenComplete { t, u -> println("mutation complete") }
-                    uowFuture.whenComplete { t, u -> println("uow complete") }
+        val unitOfWorkIncompleteWarningWrapper =
+                SchemaParserOptions.GenericWrapper.withTransformer(CompletableFuture::class, 0) { queryFuture, env ->
+                    val uowFuture = env.requestContext.unitOfWork.completionStage.toCompletableFuture()
+                    queryFuture.whenComplete { _, u ->
+                        if (u != null) {
+                            logger?.log(Level.SEVERE, "Query did not complete with error ${u.cause}")
+                        } else if (!uowFuture.isDone) {
+                            logger?.log(Level.WARNING, "Query complete but unit of work has not been " +
+                                    "completed so if this query is a mutation any changes will not be persisted")
+                        } else {
+                            logger?.log(Level.INFO, "Query complete and changes persisted")
+                        }
+                    }
+                    queryFuture
+                }
 
-                    allOf(uowFuture.toCompletableFuture(), mutation).thenApply {
-                        mutation.get()
+        val mutationWrapper = SchemaParserOptions.GenericWrapper.withTransformer(Mutation::class, 0) { mutation, env ->
+            val unitOfWork = env.requestContext.unitOfWork
+            mutation.action(unitOfWork).thenCompose {
+                unitOfWork.complete().thenCompose {
+                    mutation.getResult().thenCompose {
+                        CompletableFuture.completedFuture(it)
                     }
                 }
+            }
+        }
+
+//        unitOfWorkCompletionWrapper = SchemaParserOptions.GenericWrapper(CompletableFuture::class, 0)
 
         return SchemaParser.newParser()
                 .file("schema.graphqls")
@@ -160,10 +177,12 @@ class GraphQLRoutes(customerService: CustomerService,
                         PricingDetailsResolver(),
                         ProductResolver(),
                         OrderResolver(),
-                        Mutation(dbConfig, customerService))
+                        MutationResolver(dbConfig, customerService))
                 .dictionary("OrderLine", Order.Line::class.java)
                 .options(SchemaParserOptions.newOptions()
-                        .genericWrappers(unitOfWorkCompletionWrapper, SchemaParserOptions.GenericWrapper(Mono::class
+                        .genericWrappers(mutationWrapper, unitOfWorkIncompleteWarningWrapper, SchemaParserOptions
+                                .GenericWrapper
+                        (Mono::class
                                 .java, 1))
                         .build())
                 .build()
