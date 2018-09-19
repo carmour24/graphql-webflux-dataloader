@@ -56,13 +56,9 @@ class DBOrderRepository(create: DSLContext,
         MutatingRepository<Order, OrderID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
-                ORDER ),
+                ORDER,
+                Sequences.ORDER_ID_SEQ ),
         OrderRepository {
-
-    override fun getNextId(): Long {
-        //TODO: Finish!
-        val create.select(Sequences.ORDER_ID_SEQ.nextval()).from().sql
-    }
 
     override fun findByCustomerIds(customerIds: List<Long>, requestInfo: EntityRequestInfo?): CompletableFuture<List<Order>> {
         // Find all orders for the supplied customer IDs. The "find" method will cache the individual orders ...

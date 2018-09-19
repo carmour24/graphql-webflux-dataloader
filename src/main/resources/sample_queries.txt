@@ -1,0 +1,89 @@
+Queries:
+
+query AllCustomers {
+  customers {
+    id
+    firstName
+    lastName
+  }
+}
+
+mutation DeleteCustomers($forDeletion: [ID]) {
+	deleteCustomers(customerIds:$forDeletion)
+}
+
+mutation CreateCustomers($newCustomers: [CustomerInput]) {
+  createCustomers(customers:$newCustomers)
+}
+
+mutation CreateCustomer($newCustomer: CustomerInput) {
+  createCustomer(customer:$newCustomer)
+}
+
+mutation UpdateCustomer($customer: CustomerInput) {
+  updateCustomer(customer: $customer) {
+    id
+    firstName
+    lastName
+  }
+}
+
+mutation UpdateCustomers($customers: [CustomerInput]) {
+  updateCustomers(customers: $customers) {
+    id
+    firstName
+    lastName
+  }
+}
+
+Query variables:
+
+{
+  "newCustomer": {
+    "firstName": "Joe",
+    "lastName": "Satriani",
+    "company": 1,
+    "pricingDetails": 1
+  },
+  "customer": {
+    "id": 11,
+    "firstName": "Chris3",
+    "lastName": "Armour3",
+    "company": 1,
+    "pricingDetails": 1
+  },
+  "customers": [
+    {
+      "id": 11,
+      "firstName": "Chris5",
+      "lastName": "Armour4",
+      "company": 1,
+      "pricingDetails": 1
+    },
+    {
+      "id": 15,
+      "firstName": "Chris",
+      "lastName": "Armour5",
+      "company": 1,
+      "pricingDetails": 1
+    }
+  ],
+  "newCustomers": [
+    {
+      "firstName": "First",
+      "lastName": "Name",
+      "company": 1,
+      "pricingDetails": 1
+    },
+    {
+      "firstName": "Last",
+      "lastName": "Name",
+      "company": 1,
+      "pricingDetails": 1
+    }
+  ],
+  "forDeletion": [
+    1,
+    2
+  ]
+}

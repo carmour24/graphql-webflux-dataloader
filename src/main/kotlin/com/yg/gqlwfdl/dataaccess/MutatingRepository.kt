@@ -3,8 +3,10 @@ package com.yg.gqlwfdl.dataaccess
 import com.opidis.unitofwork.data.ExecutionInfo
 import com.yg.gqlwfdl.getLogger
 import com.yg.gqlwfdl.services.Entity
-import io.reactiverse.pgclient.*
+import io.reactiverse.pgclient.PgClient
+import io.reactiverse.pgclient.PgRowSet
 import io.reactiverse.pgclient.Row
+import io.reactiverse.pgclient.Tuple
 import io.vertx.core.AsyncResult
 import org.jooq.*
 import org.jooq.impl.DSL.field
@@ -35,6 +37,10 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
     fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<IntArray>
 
     fun delete(entities: List<TEntity>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
+    /**
+     * Get next ID for the current table based on sequence parameter
+     */
+    fun getNextId(): CompletableFuture<TId>
 }
 
 class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
@@ -48,14 +54,32 @@ class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
  * @param pgClient The PgPool connection pool on which to execute the generated queries
  * @param table The Jooq [Table]
  */
-open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : TableRecord<TRecord>>(
+open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TRecord : TableRecord<TRecord>>(
         protected val create: DSLContext,
         protected val pgClient: PgClient,
         val table: Table<TRecord>,
+        private val sequence: Sequence<TId>,
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
 ) : MutatingRepository<TEntity, TId, PgClientExecutionInfo> {
+
     private val logger = getLogger()
+
+    // This function only returns a single value, in practice it should take a size and return that many IDs
+    // from a single query.
+    override fun getNextId(): CompletableFuture<TId> {
+        val sql = create
+                .select(sequence.nextval())
+                .sql
+
+        val future = CompletableFuture<TId>()
+
+        pgClient.query(sql) {
+            future.complete(it.result().first().getValue(0) as TId)
+        }
+
+        return future
+    }
 
     override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<Int> = update(listOf(entity), executionInfo).thenApply { it.first() }
 

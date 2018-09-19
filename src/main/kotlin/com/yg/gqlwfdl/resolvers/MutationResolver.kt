@@ -37,6 +37,7 @@ class MutationResolver(
         private val orderService: OrderService) :
         GraphQLMutationResolver {
 
+    private val logger = getLogger()
     /**
      * Deletes all existing data and populates the database with a bunch of randomly generated test data.
      */
@@ -183,9 +184,9 @@ class MutationResolver(
             }
         }
     }
-    fun createOrder(orderInput: OrderInput): Mutation<Order> {
-        getLogger()?.log(Level.INFO, "Order creation requested with $orderInput")
 
+    fun createOrder(orderInput: OrderInput): Mutation<Order> {
+        logger?.log(Level.INFO, "Order creation requested with $orderInput")
         return object : Mutation<Order> {
             private var order: Order? = null
 
@@ -256,6 +257,8 @@ class MutationResolver(
             }
         }
     }
+
+    fun getNextOrderSequence(): CompletableFuture<OrderID> = orderService.getNextSequence()
 
     data class CustomerInput(
             val id: Long?,

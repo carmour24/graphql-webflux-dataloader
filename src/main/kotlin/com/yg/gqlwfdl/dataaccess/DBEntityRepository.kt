@@ -277,6 +277,7 @@ abstract class DBEntityRepository<
     protected fun SelectJoinStep<Record>.withConditions(conditions: List<Condition>?): SelectConnectByStep<Record> =
             conditions?.letIfAny { where(it) } ?: this
 
+
     // Below is the WIP old code for working with Fluxes rather than CompletableFuture<List<T>>, in case we want to go
     // back to that approach at some point.
 

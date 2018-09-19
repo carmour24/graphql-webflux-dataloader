@@ -7,6 +7,7 @@ import com.yg.gqlwfdl.resolvers.MutationResolver
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.future.asCompletableFuture
+import kotlinx.coroutines.experimental.future.await
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
@@ -44,8 +45,10 @@ interface OrderService {
     fun findByCustomerIds(customerIds: List<Long>, requestInfo: EntityRequestInfo? = null):
             CompletableFuture<List<Order>>
 
-    fun createOrder(orderInput: MutationResolver.OrderInput, products: List<Product>, unitOfWork: UnitOfWork) :
+    fun createOrder(orderInput: MutationResolver.OrderInput, products: List<Product>, unitOfWork: UnitOfWork, entityRequestInfo: EntityRequestInfo? = null) :
             CompletableFuture<Order>
+
+    fun getNextSequence(): CompletableFuture<OrderID>
 }
 
 /*
@@ -53,7 +56,9 @@ interface OrderService {
  */
 @Service
 class DefaultOrderService(private val orderRepository: OrderRepository) : OrderService {
-    override fun createOrder(orderInput: MutationResolver.OrderInput, products: List<Product>, unitOfWork: UnitOfWork):
+    override fun getNextSequence(): CompletableFuture<OrderID> = orderRepository.getNextId()
+
+    override fun createOrder(orderInput: MutationResolver.OrderInput, products: List<Product>, unitOfWork: UnitOfWork, entityRequestInfo: EntityRequestInfo?):
             CompletableFuture<Order> {
         val productIds = orderInput.lines
                 .map { it.product }
@@ -61,14 +66,19 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
         return async {
             val orderLines = mutableListOf<Order.Line>()
 
+            // It's actually possible to get the order ID after doing the insert as long as we refer in the Order.Line
+            // directly to the Order entity rather than an Order ID as the field will be updated before the subsequent
+            // order line update occurs.
+            val orderId = orderRepository.getNextId().await()
 
             Order(
-                    id = orderInput.id,
+                    id = orderId,
                     customerId = orderInput.customer,
                     deliveryAddress = orderInput.deliveryAddress,
                     date = OffsetDateTime.parse(orderInput.date),
                     lines = orderLines
             ).also { order ->
+                // When we implement creating via services, the service should invoke this automatically for us.
                 unitOfWork.trackNew(order)
 
                 orderInput.lines.mapTo(orderLines) { lineInput ->
@@ -76,7 +86,7 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
                             null,
                             product = products.find { lineInput.product == it.id }!!,
                             price = lineInput.price.toDouble(),
-                            orderID = orderInput.id!!
+                            orderID = orderId
                     )
                 }.also { orderLines ->
                     orderLines.forEach {

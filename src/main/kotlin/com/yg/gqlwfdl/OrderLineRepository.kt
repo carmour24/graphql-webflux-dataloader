@@ -1,5 +1,6 @@
 package com.yg.gqlwfdl.dataaccess
 
+import com.yg.gqlwfdl.dataaccess.db.Sequences
 import com.yg.gqlwfdl.dataaccess.db.Tables.ORDER_LINE
 import com.yg.gqlwfdl.dataaccess.db.Tables.PRODUCT
 import com.yg.gqlwfdl.dataaccess.db.tables.records.OrderLineRecord
@@ -10,13 +11,11 @@ import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.getLogger
 import com.yg.gqlwfdl.services.LineID
 import com.yg.gqlwfdl.services.Order
-import com.yg.gqlwfdl.services.Product
 import io.reactiverse.pgclient.PgPool
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Table
 import org.springframework.stereotype.Repository
-import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
 import java.util.logging.Level
 
@@ -38,9 +37,10 @@ class DBOrderLineRepository(create: DSLContext,
         ORDER_LINE,
         ORDER_LINE.ID),
         MutatingRepository<Order.Line, LineID, PgClientExecutionInfo> by DBMutatingEntityRepository(
-                create,
-                connectionPool,
-                ORDER_LINE),
+                create = create,
+                pgClient = connectionPool,
+                table = ORDER_LINE,
+                sequence = Sequences.ORDER_LINE_ID_SEQ),
         OrderLineRepository {
     private val logger = getLogger()
 

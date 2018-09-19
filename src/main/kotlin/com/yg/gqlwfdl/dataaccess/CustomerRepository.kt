@@ -1,5 +1,6 @@
 package com.yg.gqlwfdl.dataaccess
 
+import com.yg.gqlwfdl.dataaccess.db.Sequences
 import com.yg.gqlwfdl.dataaccess.db.Tables.CUSTOMER
 import com.yg.gqlwfdl.dataaccess.db.tables.records.CustomerRecord
 import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
@@ -35,7 +36,8 @@ class DBCustomerRepository(create: DSLContext,
         MutatingRepository<Customer, CustomerID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
-                table = CUSTOMER
+                table = CUSTOMER,
+                sequence = Sequences.CUSTOMER_ID_SEQ
         ),
         CustomerRepository {
 

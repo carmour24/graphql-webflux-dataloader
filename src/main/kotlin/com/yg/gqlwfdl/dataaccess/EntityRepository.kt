@@ -26,6 +26,4 @@ interface EntityRepository<TEntity: Entity<TId>, TId : Any> {
      * client, if the call was made from the context of a client request.
      */
     fun findByIds(ids: List<TId>, requestInfo: EntityRequestInfo? = null): CompletableFuture<List<TEntity>>
-
-    fun getNextId() : TId
 }

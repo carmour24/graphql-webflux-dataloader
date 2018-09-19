@@ -1,7 +1,9 @@
 package com.yg.gqlwfdl
 
+import com.yg.gqlwfdl.services.CompositeEntityCreationListener
 import com.yg.gqlwfdl.services.DataLoaderPrimerEntityCreationListener
 import com.yg.gqlwfdl.services.Entity
+import com.yg.gqlwfdl.services.UnitOfWorkAwareEntityCreationListener
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.ExecutionInput
 import graphql.schema.DataFetchingEnvironment
@@ -29,5 +31,8 @@ class RequestContext(val dataLoaderRegistry: DataLoaderRegistry, val unitOfWork:
      * caching them with the entities, so that subsequent requests for those entities can use the cached values rather
      * that querying for them again).
      */
-    val entityCreationListener = DataLoaderPrimerEntityCreationListener(this)
+    val entityCreationListener = CompositeEntityCreationListener(
+            DataLoaderPrimerEntityCreationListener(this),
+            UnitOfWorkAwareEntityCreationListener(this)
+    )
 }

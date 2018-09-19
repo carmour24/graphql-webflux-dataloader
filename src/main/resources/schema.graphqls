@@ -93,6 +93,7 @@ type Mutation {
    updateCustomer(customer: CustomerInput): Customer
    updateCustomers(customers: [CustomerInput]): [Customer]
    createOrder(order: OrderInput): Order
+   getNextOrderSequence: ID!
 }
 
 schema {
