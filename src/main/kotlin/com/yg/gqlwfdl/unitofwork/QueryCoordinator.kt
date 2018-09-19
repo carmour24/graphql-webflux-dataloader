@@ -58,10 +58,11 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
         return {
             logger?.log(Level.FINE, "Calling commitTransactionAndReturnConnectionToPool")
 
-            commitTransactionAndReturnConnectionToPool(transaction!!, connection!!) }
+            commitTransactionAndReturnConnectionToPool(transaction!!, connection!!)
+        }
     }
 
-    fun commitTransactionAndReturnConnectionToPool(transaction: PgTransaction, connection: PgConnection) : CompletableFuture<Void> {
+    fun commitTransactionAndReturnConnectionToPool(transaction: PgTransaction, connection: PgConnection): CompletableFuture<Void> {
         val future = CompletableFuture<Void>()
 
         logger?.log(Level.FINE, "Transaction committing")

@@ -1,5 +1,6 @@
 package com.yg.gqlwfdl.dataaccess
 
+import com.yg.gqlwfdl.dataaccess.db.Sequences
 import com.yg.gqlwfdl.dataaccess.db.Tables.*
 import com.yg.gqlwfdl.dataaccess.db.tables.records.OrderLineRecord
 import com.yg.gqlwfdl.dataaccess.db.tables.records.OrderRecord
@@ -10,6 +11,7 @@ import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.dataloaders.customerOrderDataLoader
 import com.yg.gqlwfdl.services.Customer
 import com.yg.gqlwfdl.services.Order
+import com.yg.gqlwfdl.services.OrderID
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
 import org.jooq.Condition
@@ -18,12 +20,11 @@ import org.jooq.Record
 import org.jooq.Table
 import org.springframework.stereotype.Repository
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 
 /**
  * Repository providing access to order information.
  */
-interface OrderRepository : EntityRepository<Order, Long> {
+interface OrderRepository : EntityRepository<Order, Long>, MutatingRepository<Order, OrderID, PgClientExecutionInfo> {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Order] objects belonging
      * to [Customer]s with the passed in [customerIds].
@@ -45,9 +46,23 @@ class DBOrderRepository(create: DSLContext,
                         clientFieldToJoinMapper: ClientFieldToJoinMapper,
                         recordProvider: RecordProvider)
     : DBEntityRepository<Order, Long, OrderRecord, OrderQueryInfo>(
-        create, connectionPool, recordToEntityConverterProvider, clientFieldToJoinMapper, recordProvider,
-        ORDER, ORDER.ID),
+                create,
+                connectionPool,
+                recordToEntityConverterProvider,
+                clientFieldToJoinMapper,
+                recordProvider,
+                ORDER,
+                ORDER.ID ),
+        MutatingRepository<Order, OrderID, PgClientExecutionInfo> by DBMutatingEntityRepository(
+                create,
+                connectionPool,
+                ORDER ),
         OrderRepository {
+
+    override fun getNextId(): Long {
+        //TODO: Finish!
+        val create.select(Sequences.ORDER_ID_SEQ.nextval()).from().sql
+    }
 
     override fun findByCustomerIds(customerIds: List<Long>, requestInfo: EntityRequestInfo?): CompletableFuture<List<Order>> {
         // Find all orders for the supplied customer IDs. The "find" method will cache the individual orders ...
@@ -152,7 +167,8 @@ class DBOrderRepository(create: DSLContext,
             }
 
             currentOrderLines.add(with(currentRow.toOrderLineRecord(queryInfo)) {
-                Order.Line(this.id, currentRow.toProductRecord(queryInfo, queryInfo.productTable).toEntity(), this.price)
+                Order.Line(this.id, currentRow.toProductRecord(queryInfo, queryInfo.productTable).toEntity(), this
+                        .price, currentRow.getOrderId())
             })
 
             if (entityCreationListener != null) {

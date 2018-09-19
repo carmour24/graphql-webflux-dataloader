@@ -92,7 +92,7 @@ type Mutation {
    createCustomers(customers: [CustomerInput]): [ID]
    updateCustomer(customer: CustomerInput): Customer
    updateCustomers(customers: [CustomerInput]): [Customer]
-   createOrder(order: OrderInput): ID!
+   createOrder(order: OrderInput): Order
 }
 
 schema {

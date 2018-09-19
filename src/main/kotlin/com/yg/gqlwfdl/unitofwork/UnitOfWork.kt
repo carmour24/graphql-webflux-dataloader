@@ -8,8 +8,12 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
 
-class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoordinator: QueryCoordinator) :
-        DefaultEntityTrackingUnitOfWork<QueryAction, PgClientExecutionInfo>(queryMappingConfiguration, queryCoordinator) {
+class UnitOfWork(
+        queryMappingConfiguration: QueryMappingConfiguration,
+        queryCoordinator: QueryCoordinator) :
+        DefaultEntityTrackingUnitOfWork<QueryAction, PgClientExecutionInfo>(
+                queryMappingConfiguration,
+                queryCoordinator) {
     private val hashMap = HashMap<Entity, Int>()
     private var future = CompletableFuture<Void>()
 
@@ -33,9 +37,8 @@ class UnitOfWork(queryMappingConfiguration: QueryMappingConfiguration, queryCoor
 
         val completion = super.complete()
 
-        completion.whenComplete { t, u ->
+        completion.thenRun {
             future.complete(null)
-//            future = CompletableFuture()
         }
 
         return completion

@@ -35,8 +35,6 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
     fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<IntArray>
 
     fun delete(entities: List<TEntity>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
-
-//    fun delete(entities: List<TId>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
 }
 
 class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
@@ -247,7 +245,6 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
     protected fun <TQuery : Query> queryForEntities(entities: List<TEntity>, fieldList: List<Field<*>>, createQuery: (List<Field<*>>) -> TQuery): Pair<TQuery, List<Tuple>> {
         val queryInfo = createQuery(fieldList)
 
-
         // Map database table fields to entity properties.
         val memberProperties = entities.first().javaClass.kotlin.memberProperties
         val bindProperties = tableFieldMapper.mapEntityPropertiesToTableFields(memberProperties, fieldList)
@@ -262,7 +259,12 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId, TRecord : Tabl
             // the tuple to be passed on batch execution. Tuple represents a single entity and a row to be
             // inserted/updated.
             bindProperties.forEach {
-                batchTuple.addValue(it?.invoke(entity))
+                val propertyValue = it?.invoke(entity)
+                if (propertyValue is Entity<*>) {
+                    batchTuple.addValue(propertyValue.id)
+                } else {
+                    batchTuple.addValue(propertyValue)
+                }
             }
             batchTuple
         }

@@ -97,7 +97,8 @@ data class Order(
     data class Line(
             override var id: LineID?,
             var product: Product,
-            var price: Double
+            var price: Double,
+            var orderID: OrderID
     ) : Entity<LineID>
 }
 

@@ -47,7 +47,8 @@ class GraphQLRoutes(customerService: CustomerService,
                     private val dataLoaderFactory: DataLoaderFactory,
                     dbConfig: DBConfig,
                     private val queryMappingConfiguration: QueryMappingConfiguration,
-                    private val queryCoordinator: QueryCoordinator) {
+                    private val queryCoordinator: QueryCoordinator,
+                    private val mutationResolver: MutationResolver) {
 
     private val schema = buildSchema(customerService, companyService, companyPartnershipService, productService,
             orderService, dbConfig)
@@ -177,7 +178,7 @@ class GraphQLRoutes(customerService: CustomerService,
                         PricingDetailsResolver(),
                         ProductResolver(),
                         OrderResolver(),
-                        MutationResolver(dbConfig, customerService))
+                        mutationResolver)
                 .dictionary("OrderLine", Order.Line::class.java)
                 .options(SchemaParserOptions.newOptions()
                         .genericWrappers(mutationWrapper, unitOfWorkIncompleteWarningWrapper, SchemaParserOptions

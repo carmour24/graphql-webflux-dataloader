@@ -1,19 +1,23 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
+import com.opidis.unitofwork.data.Entity
 import com.yg.gqlwfdl.Mutation
 import com.yg.gqlwfdl.TestDataCreator
 import com.yg.gqlwfdl.dataaccess.DBConfig
+import com.yg.gqlwfdl.dataaccess.ProductRepository
+import com.yg.gqlwfdl.dataaccess.db.tables.OrderLine
 import com.yg.gqlwfdl.dataloaders.syncWithKeys
+import com.yg.gqlwfdl.getLogger
 import com.yg.gqlwfdl.requestContext
-import com.yg.gqlwfdl.services.Customer
-import com.yg.gqlwfdl.services.CustomerID
-import com.yg.gqlwfdl.services.CustomerService
+import com.yg.gqlwfdl.services.*
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.schema.DataFetchingEnvironment
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.future.asCompletableFuture
 import kotlinx.coroutines.experimental.future.await
+import org.springframework.stereotype.Component
+import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletableFuture.allOf
 import java.util.concurrent.CompletionStage
@@ -25,7 +29,12 @@ import kotlin.system.measureTimeMillis
 /**
  * Class containing the mutations (e.g. inserts, updates) invoked by GraphQL requests.
  */
-class MutationResolver(private val dbConfig: DBConfig, private val customerService: CustomerService) :
+@Component
+class MutationResolver(
+        private val dbConfig: DBConfig,
+        private val customerService: CustomerService,
+        private val productService: ProductService,
+        private val orderService: OrderService) :
         GraphQLMutationResolver {
 
     /**
@@ -174,11 +183,78 @@ class MutationResolver(private val dbConfig: DBConfig, private val customerServi
             }
         }
     }
+    fun createOrder(orderInput: OrderInput): Mutation<Order> {
+        getLogger()?.log(Level.INFO, "Order creation requested with $orderInput")
 
-    fun createOrder(order: OrderInput): Long {
-        Logger.getLogger(this.javaClass.kotlin.qualifiedName).log(Level.INFO, "$order")
+        return object : Mutation<Order> {
+            private var order: Order? = null
 
-        return 1
+            override fun action(unitOfWork: UnitOfWork): CompletionStage<*> {
+                return async {
+                    val productIds = orderInput.lines
+                            .map { it.product }
+
+                    val products = productService.findByIds(productIds).await()
+
+                    order = orderService.createOrder(orderInput, products, unitOfWork).await()
+
+                    order
+                }.asCompletableFuture()
+            }
+
+            override fun getResult(): CompletionStage<Order> {
+                return CompletableFuture.completedFuture(order!!)
+            }
+        }
+    }
+
+    fun createOrderController(orderInput: OrderInput): Mutation<Order> {
+        getLogger()?.log(Level.INFO, "Order creation requested with $orderInput")
+
+        return object : Mutation<Order> {
+            private var order: Order? = null
+
+            override fun action(unitOfWork: UnitOfWork): CompletionStage<*> {
+                return async {
+                    val productIds = orderInput.lines
+                            .map { it.product }
+
+                    val products = productService.findByIds(productIds).await()
+
+                    orderService.createOrder(orderInput, products, unitOfWork)
+
+                    val orderLines = mutableListOf<Order.Line>()
+
+                    order = Order(
+                            id = orderInput.id,
+                            customerId = orderInput.customer,
+                            deliveryAddress = orderInput.deliveryAddress,
+                            date = OffsetDateTime.parse(orderInput.date),
+                            lines = orderLines
+                    ).also { order ->
+                        unitOfWork.trackNew(order)
+
+                        orderInput.lines.mapTo(orderLines) { lineInput ->
+                            Order.Line(
+                                    null,
+                                    product = products.find { lineInput.product == it.id }!!,
+                                    price = lineInput.price.toDouble(),
+                                    orderID = orderInput.id!!
+                            )
+                        }.also { orderLines ->
+                            orderLines.forEach {
+                                unitOfWork.trackNew(it)
+                            }
+                        }
+                    }
+
+                }.asCompletableFuture()
+            }
+
+            override fun getResult(): CompletionStage<Order> {
+                return CompletableFuture.completedFuture(order!!)
+            }
+        }
     }
 
     data class CustomerInput(
@@ -204,3 +280,6 @@ class MutationResolver(private val dbConfig: DBConfig, private val customerServi
             val price: Float
     )
 }
+
+open class Child<TChild : Entity, TParent>(val child: TChild, val parent: TParent) : Entity by child
+class OrderLineChild(child: Order.Line, parent: Order) : Child<Order.Line, Order>(child, parent)

@@ -34,7 +34,7 @@ interface CustomerService {
 
     fun insert(customer: Customer): CompletionStage<CustomerID>
 
-    fun update(cusromer: Customer): CompletionStage<Customer>
+    fun update(customer: Customer): CompletionStage<Customer>
 
     fun update(customers: List<Customer>): CompletionStage<List<Customer>>
 }
