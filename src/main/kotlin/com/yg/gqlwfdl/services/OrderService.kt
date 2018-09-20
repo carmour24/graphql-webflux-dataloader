@@ -2,7 +2,6 @@ package com.yg.gqlwfdl.services
 
 import com.yg.gqlwfdl.dataaccess.EntityRequestInfo
 import com.yg.gqlwfdl.dataaccess.OrderRepository
-import com.yg.gqlwfdl.dataaccess.db.Sequences
 import com.yg.gqlwfdl.resolvers.MutationResolver
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import kotlinx.coroutines.experimental.async
@@ -84,7 +83,7 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
                             null,
                             product = products.find { lineInput.product == it.id }!!,
                             price = lineInput.price.toDouble(),
-                            orderID = orderId
+                            order = EntityOrId.Id(orderId)
                     )
                 }.also { orderLines ->
                     orderLines.forEach {

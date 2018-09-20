@@ -98,9 +98,10 @@ data class Order(
             override var id: LineID?,
             var product: Product,
             var price: Double,
-            var orderID: OrderID
+            var order: EntityOrId<OrderID, Order>
     ) : Entity<LineID>
 }
+
 
 /**
  * A wrapper around an [Entity] which exposes the entity itself, and a count.

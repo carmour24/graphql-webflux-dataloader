@@ -3,6 +3,7 @@ package com.yg.gqlwfdl.dataaccess
 import com.opidis.unitofwork.data.ExecutionInfo
 import com.yg.gqlwfdl.getLogger
 import com.yg.gqlwfdl.services.Entity
+import com.yg.gqlwfdl.services.EntityOrId
 import io.reactiverse.pgclient.PgClient
 import io.reactiverse.pgclient.PgRowSet
 import io.reactiverse.pgclient.Row
@@ -245,15 +246,16 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
         // with the query parameters properly at execution.
         val batch = entities.map { entity ->
             val batchTuple = Tuple.tuple()
-            // Run through the list of properties mapped by convention to bind values and add the values for these to
+
             // the tuple to be passed on batch execution. Tuple represents a single entity and a row to be
             // inserted/updated.
             bindProperties.forEach {
                 val propertyValue = it?.invoke(entity)
-                if (propertyValue is Entity<*>) {
-                    batchTuple.addValue(propertyValue.id)
-                } else {
-                    batchTuple.addValue(propertyValue)
+                when (propertyValue) {
+                    is EntityOrId.Entity<*, *> -> batchTuple.addValue(propertyValue.entity.id)
+                    is EntityOrId.Id<*, *> -> batchTuple.addValue(propertyValue.id)
+                    is Entity<*> -> batchTuple.addValue(propertyValue.id)
+                    else -> batchTuple.addValue(propertyValue)
                 }
             }
             batchTuple

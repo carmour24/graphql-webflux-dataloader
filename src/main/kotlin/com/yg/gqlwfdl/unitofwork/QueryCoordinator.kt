@@ -17,8 +17,6 @@ typealias TransactionCompletion = () -> CompletableFuture<Void>
 @Component
 class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryAction, PgClientExecutionInfo> {
     private val logger by lazy { getLogger() }
-    var connection: PgConnection? = null
-    var transaction: PgTransaction? = null
 
     override fun batchExecute(queries: List<QueryAction>, executionInfo: PgClientExecutionInfo?):
             CompletionStage<IntArray> {
@@ -37,6 +35,8 @@ class QueryCoordinator(private val pgPool: PgPool) : QueryCoordinator<QueryActio
     }
 
     override fun transaction(transactional: (PgClientExecutionInfo?) -> Unit): TransactionCompletion {
+        var connection: PgConnection? = null
+        var transaction: PgTransaction? = null
         pgPool.getConnection { connectionResult ->
             if (connectionResult.failed()) {
                 logger?.log(Level.SEVERE, "Failed to get connection ${connectionResult.cause()}")

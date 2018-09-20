@@ -1,7 +1,6 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
-import com.opidis.unitofwork.data.Entity
 import com.yg.gqlwfdl.*
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.services.*
@@ -15,6 +14,7 @@ import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
+import kotlin.math.log
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")
@@ -230,7 +230,8 @@ class MutationResolver(
                                     null,
                                     product = products.find { lineInput.product == it.id }!!,
                                     price = lineInput.price.toDouble(),
-                                    orderID = orderInput.id!!
+//                                    order = EntityOrId.Id(order.id)
+                                    order = EntityOrId.Entity(order)
                             )
                         }.also { orderLines ->
                             orderLines.forEach {

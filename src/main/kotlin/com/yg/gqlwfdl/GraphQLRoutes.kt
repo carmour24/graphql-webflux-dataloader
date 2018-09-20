@@ -79,7 +79,13 @@ class GraphQLRoutes(customerService: CustomerService,
         // Create a data loader registry and register all the data loader into it. Wrap this in a RequestContext
         // object, and make this available to all the resolvers via the execution input's "context" property.
         val registry = DataLoaderRegistry()
+
+        // We create a single unit of work per request. In practice, there may be multiple mutations within the same
+        // request which are executed sequentially. Although there is only one unit of work, there will be a call to
+        // UnitOfWork.complete per mutation and so all changes performed in that mutation will be persisted within
+        // its own transaction.
         val unitOfWork = UnitOfWork(queryMappingConfiguration, queryCoordinator = queryCoordinator)
+
         val requestContext = RequestContext(registry, unitOfWork)
         dataLoaderFactory.createAllAndRegister(registry, requestContext)
 

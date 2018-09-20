@@ -10,6 +10,7 @@ import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.dataloaders.customerOrderDataLoader
 import com.yg.gqlwfdl.services.Customer
+import com.yg.gqlwfdl.services.EntityOrId
 import com.yg.gqlwfdl.services.Order
 import com.yg.gqlwfdl.services.OrderID
 import io.reactiverse.pgclient.PgPool
@@ -165,7 +166,7 @@ class DBOrderRepository(create: DSLContext,
 
             currentOrderLines.add(with(currentRow.toOrderLineRecord(queryInfo)) {
                 Order.Line(this.id, currentRow.toProductRecord(queryInfo, queryInfo.productTable).toEntity(), this
-                        .price, currentRow.getOrderId())
+                        .price, EntityOrId.Id(currentRow.getOrderId()))
             })
 
             if (entityCreationListener != null) {
