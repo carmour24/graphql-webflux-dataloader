@@ -36,8 +36,7 @@ class DBCustomerRepository(create: DSLContext,
         MutatingRepository<Customer, CustomerID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
-                table = CUSTOMER,
-                sequence = Sequences.CUSTOMER_ID_SEQ
+                table = CUSTOMER
         ),
         CustomerRepository {
 

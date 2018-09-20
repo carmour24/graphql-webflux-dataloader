@@ -19,7 +19,7 @@ import kotlin.reflect.full.memberProperties
 /**
  * Repository interface for performing basic insert/updates of entities to storage.
  */
-interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
+interface MutatingRepository<TEntity, TId, in TExecutionInfo : ExecutionInfo> {
     /**
      * Inserts a [TEntity] to the repository. Returns a [CompletableFuture] object which is resolved when the insert
      * is completed.
@@ -32,18 +32,27 @@ interface MutatingRepository<TEntity, TId, TExecutionInfo : ExecutionInfo> {
      */
     fun insert(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<List<TId>>
 
+    /**
+     * Attempts to update the entity specified in the repository. Returns a [CompletionStage] object which is resolved
+     * when the update is completed with the count of rows affected.
+     */
     fun update(entity: TEntity, executionInfo: TExecutionInfo? = null): CompletionStage<Int>
 
+    /**
+     * Attempts to update the [List] of entities specified in the repository. Returns a [CompletionStage] of [IntArray]
+     * which is resolved when the update is completed with each element being the respective count of rows affected.
+     */
     fun update(entities: List<TEntity>, executionInfo: TExecutionInfo? = null): CompletionStage<IntArray>
 
-    fun delete(entities: List<TEntity>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
     /**
-     * Get next ID for the current table based on sequence parameter
+     * Attempts to delete the [List] of entities specified in the repository. Returns a [CompletionStage] of [IntArray]
+     * which is resolved when the delete is completed with each element being the respective count of rows affected.
      */
-    fun getNextId(): CompletableFuture<TId>
+    fun delete(entities: List<TEntity>, executionInfo: TExecutionInfo?): CompletionStage<IntArray>
 }
 
 class PgClientExecutionInfo(val pgClient: PgClient) : ExecutionInfo
+
 
 /**
  * DB implementation of [MutatingRepository] using Jooq for SQL generation and reactive pg client for execution.
@@ -58,28 +67,11 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
         protected val create: DSLContext,
         protected val pgClient: PgClient,
         val table: Table<TRecord>,
-        private val sequence: Sequence<TId>,
         private val tableFieldMapper: EntityPropertyToTableFieldMapper<TEntity, Field<*>> =
                 DefaultEntityPropertyToTableFieldMapper()
 ) : MutatingRepository<TEntity, TId, PgClientExecutionInfo> {
 
     private val logger = getLogger()
-
-    // This function only returns a single value, in practice it should take a size and return that many IDs
-    // from a single query.
-    override fun getNextId(): CompletableFuture<TId> {
-        val sql = create
-                .select(sequence.nextval())
-                .sql
-
-        val future = CompletableFuture<TId>()
-
-        pgClient.query(sql) {
-            future.complete(it.result().first().getValue(0) as TId)
-        }
-
-        return future
-    }
 
     override fun update(entity: TEntity, executionInfo: PgClientExecutionInfo?): CompletionStage<Int> = update(listOf(entity), executionInfo).thenApply { it.first() }
 
@@ -95,7 +87,7 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
 
         // Modify the current query to specify the ID for the rows to update and return all fields for the updated
         // records
-        val query = updateQueryInfo.where(field("ID").eq(""))//.returning(fieldListPlusId)
+        val query = updateQueryInfo.where(field(table.identity.field.name).eq(""))//.returning(fieldListPlusId)
 
         // Array of CompletableFuture instances to be resolved in order with the updated contents of the entities passed
         // in to be updated. This allows us to ensure that the entities are as expected.
@@ -166,12 +158,6 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
         // otherwise use the constructor injected client, which will perform queries outside of a transaction.
         val getRowIdentityValue = getRowIdentityValueFunc()
 
-        // Select the appropriate function to perform completion of promises for the insert of the batch
-        // inserted entities. The function is selected by the type of the primary key field. This will
-        // not work with composite keys.
-        // The completion function is selected to avoid having to recalculate on each entity insertion;
-        // currently we only support batch inserts to the same table.
-
 
         executeQuery(sql, executionInfo, batch, makeFailureAction(future)) { asyncResultRowSet ->
             val rows = asyncResultRowSet.flattenRows()
@@ -186,26 +172,6 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
 
             future.complete(ids)
         }
-        /*) { asyncResultRowSet ->
-            // Iterate over each result set, there should be one per entity we insert.
-            val result = asyncResultRowSet.map { result ->
-                // Within each result set iterate over each row.
-                // There should only be one row for an insert.
-                result.map { getRowIdentityValue(it) }.toList()
-            }.result()
-
-            // If the entity was not specified during insert then we should populate the entities with it.
-            if (entityIdsNotSpecified) {
-                result.forEachIndexed {index, tId ->
-                    entities[index].id = tId
-                }
-            }
-
-            asyncResultRowSet.forEachIndexed()
-
-            future.complete(result)
-        }
-        */
 
         return future
     }
@@ -326,12 +292,3 @@ open class DBMutatingEntityRepository<TEntity : Entity<TId>, TId : Number, TReco
     }
 
 }
-
-//fun <TEntity : Entity<*>, TRecord : Record> MutatingRepository<*, *, *>.newRecordFrom(entity: TEntity,
-//                                                                                 createRecord: KCallable<TRecord>):
-//        TRecord {
-//    val record = createRecord.call()
-//    record.from(entity)
-//    return record
-//}
-

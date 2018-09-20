@@ -2,14 +2,8 @@ package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
 import com.opidis.unitofwork.data.Entity
-import com.yg.gqlwfdl.Mutation
-import com.yg.gqlwfdl.TestDataCreator
+import com.yg.gqlwfdl.*
 import com.yg.gqlwfdl.dataaccess.DBConfig
-import com.yg.gqlwfdl.dataaccess.ProductRepository
-import com.yg.gqlwfdl.dataaccess.db.tables.OrderLine
-import com.yg.gqlwfdl.dataloaders.syncWithKeys
-import com.yg.gqlwfdl.getLogger
-import com.yg.gqlwfdl.requestContext
 import com.yg.gqlwfdl.services.*
 import com.yg.gqlwfdl.unitofwork.UnitOfWork
 import graphql.schema.DataFetchingEnvironment
@@ -19,10 +13,8 @@ import kotlinx.coroutines.experimental.future.await
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletableFuture.allOf
 import java.util.concurrent.CompletionStage
 import java.util.logging.Level
-import java.util.logging.Logger
 import kotlin.system.measureTimeMillis
 
 @Suppress("unused")
@@ -58,9 +50,8 @@ class MutationResolver(
 
         return object : Mutation<List<Customer>> {
             override fun action(unitOfWork: UnitOfWork): CompletionStage<Void> {
-                return customerService.findByIds(customerIds).thenAccept { customers ->
+                return customerService.findByIds(customerIds, env.toEntityRequestInfo()).thenAccept { customers ->
                     customers.forEach { customer ->
-                        unitOfWork.trackEntityForChanges(customer)
                         val customerInput = customersInput.find { it.id == customer.id }
 
                         if (customerInput != null) {
@@ -76,7 +67,7 @@ class MutationResolver(
                 }
             }
 
-            override fun getResult(): CompletionStage<List<Customer>> {
+            override fun result(): CompletionStage<List<Customer>> {
                 return customerService.findByIds(customerIds)
             }
         }
@@ -89,10 +80,9 @@ class MutationResolver(
 
         return async {
             val customerIds = customersInput.mapNotNull { it.id }
-            val customers = customerService.findByIds(customerIds).await()
+            val customers = customerService.findByIds(customerIds, env.toEntityRequestInfo()).await()
 
             customers.forEach { customer ->
-                unitOfWork.trackEntityForChanges(customer)
                 val customerInput = customersInput.find { it.id == customer.id }
 
                 if (customerInput != null) {
@@ -125,8 +115,8 @@ class MutationResolver(
                 return createCustomers.action(unitOfWork)
             }
 
-            override fun getResult(): CompletionStage<CustomerID> {
-                return createCustomers.getResult().thenApply { it.first() }
+            override fun result(): CompletionStage<CustomerID> {
+                return createCustomers.result().thenApply { it.first() }
             }
         }
     }
@@ -154,7 +144,7 @@ class MutationResolver(
                 return CompletableFuture.completedFuture(null)
             }
 
-            override fun getResult(): CompletionStage<List<CustomerID>> {
+            override fun result(): CompletionStage<List<CustomerID>> {
                 val customerIds = customers.map { customer ->
                     customer.id ?: throw NullPointerException("Customer should be persisted and ID set on entity " +
                             "prior to completing the create customer operation")
@@ -177,7 +167,7 @@ class MutationResolver(
                 }.asCompletableFuture()
             }
 
-            override fun getResult(): CompletionStage<List<Boolean>> {
+            override fun result(): CompletionStage<List<Boolean>> {
                 return async {
                     tracking!!.map { it?.await() == 1 }
                 }.asCompletableFuture()
@@ -203,7 +193,7 @@ class MutationResolver(
                 }.asCompletableFuture()
             }
 
-            override fun getResult(): CompletionStage<Order> {
+            override fun result(): CompletionStage<Order> {
                 return CompletableFuture.completedFuture(order!!)
             }
         }
@@ -252,7 +242,7 @@ class MutationResolver(
                 }.asCompletableFuture()
             }
 
-            override fun getResult(): CompletionStage<Order> {
+            override fun result(): CompletionStage<Order> {
                 return CompletableFuture.completedFuture(order!!)
             }
         }

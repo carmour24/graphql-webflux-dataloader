@@ -60,8 +60,6 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
 
     override fun createOrder(orderInput: MutationResolver.OrderInput, products: List<Product>, unitOfWork: UnitOfWork, entityRequestInfo: EntityRequestInfo?):
             CompletableFuture<Order> {
-        val productIds = orderInput.lines
-                .map { it.product }
 
         return async {
             val orderLines = mutableListOf<Order.Line>()

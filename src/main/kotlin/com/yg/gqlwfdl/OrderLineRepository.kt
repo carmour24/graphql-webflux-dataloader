@@ -39,8 +39,7 @@ class DBOrderLineRepository(create: DSLContext,
         MutatingRepository<Order.Line, LineID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create = create,
                 pgClient = connectionPool,
-                table = ORDER_LINE,
-                sequence = Sequences.ORDER_LINE_ID_SEQ),
+                table = ORDER_LINE ),
         OrderLineRepository {
     private val logger = getLogger()
 
@@ -69,6 +68,7 @@ class DBOrderLineRepository(create: DSLContext,
 
         return finalQuery.fetchRowsAsync().thenApply { rows ->
             //            getEntities(queryInfo, it, requestInfo?.entityCreationListener, joinInstanceSets)
+            // TODO: Currently this doesn't do anything, will add order line returning but isn't necessary for now.
             for (row in rows) {
                 logger?.log(Level.FINER, "$row")
             }

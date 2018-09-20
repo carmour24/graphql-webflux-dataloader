@@ -160,7 +160,7 @@ class GraphQLRoutes(customerService: CustomerService,
             val unitOfWork = env.requestContext.unitOfWork
             mutation.action(unitOfWork).thenCompose {
                 unitOfWork.complete().thenCompose {
-                    mutation.getResult().thenCompose {
+                    mutation.result().thenCompose {
                         CompletableFuture.completedFuture(it)
                     }
                 }

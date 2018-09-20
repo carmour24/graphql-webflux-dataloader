@@ -24,7 +24,8 @@ import java.util.concurrent.CompletableFuture
 /**
  * Repository providing access to order information.
  */
-interface OrderRepository : EntityRepository<Order, Long>, MutatingRepository<Order, OrderID, PgClientExecutionInfo> {
+interface OrderRepository : EntityRepository<Order, OrderID>, MutatingRepository<Order, OrderID, PgClientExecutionInfo>,
+        SequenceGenerator<OrderID> {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Order] objects belonging
      * to [Customer]s with the passed in [customerIds].
@@ -56,8 +57,8 @@ class DBOrderRepository(create: DSLContext,
         MutatingRepository<Order, OrderID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
-                ORDER,
-                Sequences.ORDER_ID_SEQ ),
+                ORDER ),
+        SequenceGenerator<OrderID> by DBSequenceGenerator(create, Sequences.ORDER_ID_SEQ, connectionPool),
         OrderRepository {
 
     override fun findByCustomerIds(customerIds: List<Long>, requestInfo: EntityRequestInfo?): CompletableFuture<List<Order>> {
