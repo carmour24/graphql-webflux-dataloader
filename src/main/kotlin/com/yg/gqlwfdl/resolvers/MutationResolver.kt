@@ -273,6 +273,3 @@ class MutationResolver(
             val price: Float
     )
 }
-
-open class Child<TChild : Entity, TParent>(val child: TChild, val parent: TParent) : Entity by child
-class OrderLineChild(child: Order.Line, parent: Order) : Child<Order.Line, Order>(child, parent)
