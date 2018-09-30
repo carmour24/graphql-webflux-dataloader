@@ -81,9 +81,10 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
                 orderInput.lines.mapTo(orderLines) { lineInput ->
                     Order.Line(
                             null,
-                            product = products.find { lineInput.product == it.id }!!,
+                            product = EntityOrId.Entity(products.find { lineInput.product == it.id }!!),
+//                            product = EntityOrId.Entity(products.find { lineInput.product == it.id }!!),
                             price = lineInput.price.toDouble(),
-                            order = EntityOrId.Id(orderId)
+                            order = orderId
                     )
                 }.also { orderLines ->
                     orderLines.forEach {

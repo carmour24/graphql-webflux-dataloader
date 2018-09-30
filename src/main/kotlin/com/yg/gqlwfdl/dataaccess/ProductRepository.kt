@@ -7,8 +7,10 @@ import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.dataloaders.productOrderCountDataLoader
+import com.yg.gqlwfdl.services.EntityOrId
 import com.yg.gqlwfdl.services.EntityWithCount
 import com.yg.gqlwfdl.services.Product
+import com.yg.gqlwfdl.services.ProductID
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
 import org.jooq.*
@@ -19,7 +21,7 @@ import java.util.concurrent.CompletableFuture
 /**
  * Repository providing access to product information.
  */
-interface ProductRepository : EntityRepository<Product, Long> {
+interface ProductRepository : EntityRepository<Product, ProductID> {
     /**
      * Returns a [CompletableFuture] which, when completed, will provide a [List] of all [Product] objects with the
      * passed in IDs, along with their order counts, wrapped in an [EntityWithCount] object.
@@ -142,6 +144,14 @@ class DBProductRepository(create: DSLContext,
  * Converts a [ProductRecord] to its corresponding entity, a [Product].
  */
 fun ProductRecord.toEntity() = Product(this.id, this.description, this.price, this.company)
+
+fun ProductRecord.toEntityOrID(join: Boolean): EntityOrId<ProductID, Product> {
+    return if (join)
+        EntityOrId.Entity(this.toEntity())
+    else
+        EntityOrId.Id(this.id)
+}
+
 
 /**
  * Gets a [ProductRecord] from this [Row], reading the data from the passed in [queryInfo]'s

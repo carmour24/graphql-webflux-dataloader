@@ -48,17 +48,17 @@ class DBOrderRepository(create: DSLContext,
                         clientFieldToJoinMapper: ClientFieldToJoinMapper,
                         recordProvider: RecordProvider)
     : DBEntityRepository<Order, Long, OrderRecord, OrderQueryInfo>(
-                create,
-                connectionPool,
-                recordToEntityConverterProvider,
-                clientFieldToJoinMapper,
-                recordProvider,
-                ORDER,
-                ORDER.ID ),
+        create,
+        connectionPool,
+        recordToEntityConverterProvider,
+        clientFieldToJoinMapper,
+        recordProvider,
+        ORDER,
+        ORDER.ID),
         MutatingRepository<Order, OrderID, PgClientExecutionInfo> by DBMutatingEntityRepository(
                 create,
                 connectionPool,
-                ORDER ),
+                ORDER),
         SequenceGenerator<OrderID> by DBSequenceGenerator(create, Sequences.ORDER_ID_SEQ, connectionPool),
         OrderRepository {
 
@@ -165,8 +165,13 @@ class DBOrderRepository(create: DSLContext,
             }
 
             currentOrderLines.add(with(currentRow.toOrderLineRecord(queryInfo)) {
-                Order.Line(this.id, currentRow.toProductRecord(queryInfo, queryInfo.productTable).toEntity(), this
-                        .price, EntityOrId.Id(currentRow.getOrderId()))
+                Order.Line(this.id,
+                        currentRow.toProductRecord(
+                                queryInfo,
+                                queryInfo.productTable).toEntityOrID(true),
+                        this.price,
+                        currentRow.getOrderId()
+                )
             })
 
             if (entityCreationListener != null) {
@@ -180,6 +185,7 @@ class DBOrderRepository(create: DSLContext,
         return orders
     }
 }
+
 
 /**
  * Gets an [OrderLineRecord] from this [Row], reading the data from the passed in [queryInfo]'s

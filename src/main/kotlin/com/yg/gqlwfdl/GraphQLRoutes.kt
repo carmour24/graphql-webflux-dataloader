@@ -14,6 +14,7 @@ import graphql.ExecutionInput.newExecutionInput
 import graphql.ExecutionResult
 import graphql.GraphQL
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation
+import graphql.schema.DataFetchingEnvironment
 import graphql.schema.GraphQLSchema
 import org.dataloader.DataLoader
 import org.dataloader.DataLoaderRegistry
@@ -31,6 +32,7 @@ import reactor.core.publisher.Mono.*
 import java.net.URLDecoder
 import java.util.concurrent.CompletableFuture
 import java.util.logging.Level
+import javax.xml.validation.Schema
 
 private val GraphQLMediaType = MediaType.parseMediaType("application/GraphQL")
 
@@ -146,23 +148,8 @@ class GraphQLRoutes(customerService: CustomerService,
                             orderService: OrderService,
                             dbConfig: DBConfig): GraphQLSchema {
 
-        val unitOfWorkIncompleteWarningWrapper =
-                SchemaParserOptions.GenericWrapper.withTransformer(CompletableFuture::class, 0) { queryFuture, env ->
-                    val uowFuture = env.requestContext.unitOfWork.completionStage.toCompletableFuture()
-                    queryFuture.whenComplete { _, u ->
-                        if (u != null) {
-                            logger?.log(Level.SEVERE, "Query did not complete with error ${u.cause}")
-                        } else if (!uowFuture.isDone) {
-                            logger?.log(Level.WARNING, "Query complete but unit of work has not been " +
-                                    "completed so if this query is a mutation any changes will not be persisted")
-                        } else {
-                            logger?.log(Level.INFO, "Query complete and changes persisted")
-                        }
-                    }
-                    queryFuture
-                }
-
-        val mutationWrapper = SchemaParserOptions.GenericWrapper.withTransformer(Mutation::class, 0) { mutation, env ->
+        val mutationWrapper = SchemaParserOptions.GenericWrapper.withTransformer(Mutation::class.java, 0, {
+            mutation: Mutation<*>, env: DataFetchingEnvironment ->
             val unitOfWork = env.requestContext.unitOfWork
             mutation.action(unitOfWork).thenCompose {
                 unitOfWork.complete().thenCompose {
@@ -171,9 +158,22 @@ class GraphQLRoutes(customerService: CustomerService,
                     }
                 }
             }
-        }
+        })
 
-//        unitOfWorkCompletionWrapper = SchemaParserOptions.GenericWrapper(CompletableFuture::class, 0)
+        // Unwrap an EntityOrId instance to its ID. If the entity is present then it will be retrieved from the data
+        // cache if it is required. Otherwise it will be retrieved as part of a query if required. In a mutation
+        // which returns via a query we will need to be careful to ensure that joins are done eagerly if they will be
+        // required.
+        // TODO: Add join request information to mutation query returns.
+        val entityOrIdWrapper = SchemaParserOptions.GenericWrapper.withTransformer(EntityOrId::class.java, 0, {
+            entityOrId, env ->
+            if (entityOrId is EntityOrId.Entity<*, *>) {
+                 entityOrId.entity
+            } else {
+                env.requestContext.dataLoaderRegistry.getDataLoader<Any, Any>(entityOrId::class.simpleName)
+                        .getCacheKey(entityOrId.entityId)
+            }
+        })
 
         return SchemaParser.newParser()
                 .file("schema.graphqls")
@@ -186,11 +186,12 @@ class GraphQLRoutes(customerService: CustomerService,
                         OrderResolver(),
                         mutationResolver)
                 .dictionary("OrderLine", Order.Line::class.java)
+                .dictionary("Product", Product::class.java)
                 .options(SchemaParserOptions.newOptions()
-                        .genericWrappers(mutationWrapper, unitOfWorkIncompleteWarningWrapper, SchemaParserOptions
+                        .genericWrappers(mutationWrapper, entityOrIdWrapper, SchemaParserOptions
                                 .GenericWrapper
-                        (Mono::class
-                                .java, 1))
+                                (Mono::class
+                                        .java, 1))
                         .build())
                 .build()
                 .makeExecutableSchema()
