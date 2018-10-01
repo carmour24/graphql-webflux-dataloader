@@ -70,7 +70,7 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
 
             Order(
                     id = orderId,
-                    customerId = orderInput.customer,
+                    customer = EntityOrId.Id(orderInput.customer),
                     deliveryAddress = orderInput.deliveryAddress,
                     date = OffsetDateTime.parse(orderInput.date),
                     lines = orderLines
@@ -78,13 +78,14 @@ class DefaultOrderService(private val orderRepository: OrderRepository) : OrderS
                 // When we implement creating via services, the service should invoke this automatically for us.
                 unitOfWork.trackNew(order)
 
+                val orderEntityOrId = EntityOrId.Entity(order)
+
                 orderInput.lines.mapTo(orderLines) { lineInput ->
                     Order.Line(
                             null,
                             product = EntityOrId.Entity(products.find { lineInput.product == it.id }!!),
-//                            product = EntityOrId.Entity(products.find { lineInput.product == it.id }!!),
                             price = lineInput.price.toDouble(),
-                            order = orderId
+                            order = orderEntityOrId
                     )
                 }.also { orderLines ->
                     orderLines.forEach {

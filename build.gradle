@@ -2,6 +2,7 @@ buildscript {
     ext {
         kotlinVersion = '1.2.70'
         springBootVersion = '2.0.4.RELEASE'
+        jooqVersion = '3.11.5'
     }
     repositories {
         mavenCentral()
@@ -57,8 +58,8 @@ dependencies {
     compile("com.graphql-java:java-dataloader:2.1.1")
     compile("org.junit.jupiter:junit-jupiter-api")
     compile("org.jooq:jooq:3.11.2")
-    compile("org.jooq:jooq-meta:3.11.2")
-    compile("org.jooq:jooq-codegen:3.11.2")
+    compile("org.jooq:jooq-meta:$jooqVersion")
+    compile("org.jooq:jooq-codegen:$jooqVersion")
     compile("io.reactiverse:reactive-pg-client:0.9.0")
 
     runtime('org.springframework.boot:spring-boot-devtools')
@@ -66,9 +67,9 @@ dependencies {
     runtime('org.postgresql:postgresql')
 
     jooqRuntime('org.postgresql:postgresql')
-    jooqRuntime("org.jooq:jooq:3.11.2")
-    jooqRuntime("org.jooq:jooq-meta:3.11.2")
-    jooqRuntime("org.jooq:jooq-codegen:3.11.2")
+    jooqRuntime("org.jooq:jooq:$jooqVersion")
+    jooqRuntime("org.jooq:jooq-meta:$jooqVersion")
+    jooqRuntime("org.jooq:jooq-codegen:$jooqVersion")
 
     testCompile('org.springframework.boot:spring-boot-starter-test')
     testCompile('io.projectreactor:reactor-test')
@@ -79,7 +80,7 @@ test {
 }
 
 jooq {
-    version = '3.11.2'
+    version = "$jooqVersion"
     edition = 'OSS'
     tables(sourceSets.main) {
         jdbc {

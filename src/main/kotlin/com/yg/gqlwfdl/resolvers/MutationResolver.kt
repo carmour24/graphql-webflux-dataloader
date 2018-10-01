@@ -1,7 +1,6 @@
 package com.yg.gqlwfdl.resolvers
 
 import com.coxautodev.graphql.tools.GraphQLMutationResolver
-import com.coxautodev.graphql.tools.GraphQLResolver
 import com.yg.gqlwfdl.*
 import com.yg.gqlwfdl.dataaccess.DBConfig
 import com.yg.gqlwfdl.services.*
@@ -218,7 +217,7 @@ class MutationResolver(
 
                     order = Order(
                             id = orderInput.id,
-                            customerId = orderInput.customer,
+                            customer = EntityOrId.Id(orderInput.customer),
                             deliveryAddress = orderInput.deliveryAddress,
                             date = OffsetDateTime.parse(orderInput.date),
                             lines = orderLines
@@ -226,13 +225,15 @@ class MutationResolver(
                         unitOfWork.trackNew(order)
 
                         orderInput.lines.mapTo(orderLines) { lineInput ->
+                            val orderEntityOrId = EntityOrId.Entity(order)
+
                             Order.Line(
                                     null,
 //                                    product = products.find { lineInput.product == it.id }!!,
                                     product = EntityOrId.Entity(products.find { lineInput.product == it.id }!!),
                                     price = lineInput.price.toDouble(),
-//                                    order = EntityOrId.Id(order.id)
-                                    order = order.id!!
+                                    order = orderEntityOrId
+//                                    order = order.id!!
                             )
                         }.also { orderLines ->
                             orderLines.forEach {

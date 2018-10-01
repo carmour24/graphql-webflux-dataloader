@@ -145,7 +145,7 @@ class DBProductRepository(create: DSLContext,
  */
 fun ProductRecord.toEntity() = Product(this.id, this.description, this.price, this.company)
 
-fun ProductRecord.toEntityOrID(join: Boolean): EntityOrId<ProductID, Product> {
+fun ProductRecord.toEntityOrID(join: Boolean = true): EntityOrId<Product, ProductID> {
     return if (join)
         EntityOrId.Entity(this.toEntity())
     else

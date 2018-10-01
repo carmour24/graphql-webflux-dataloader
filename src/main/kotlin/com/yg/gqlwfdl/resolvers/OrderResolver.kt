@@ -21,5 +21,5 @@ class OrderResolver : DataLoadingResolver(), GraphQLResolver<Order> {
      * Gets a [CompletableFuture] which, when completed, will return the primary contact for the passed in order.
      */
     fun customer(order: Order, env: DataFetchingEnvironment): CompletableFuture<Customer> =
-            prepareDataLoader(env) { env.requestContext.customerDataLoader }.load(order.customerId)
+            prepareDataLoader(env) { env.requestContext.customerDataLoader }.load(order.customer.entityId)
 }

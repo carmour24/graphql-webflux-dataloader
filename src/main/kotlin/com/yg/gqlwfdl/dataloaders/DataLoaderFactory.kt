@@ -73,7 +73,7 @@ class DataLoaderFactory(private val customerService: CustomerService,
                 }
 
                 DataLoaderType.CUSTOMER_ORDER -> createGroupingDataLoader<Long, Order>(
-                        requestContext, { it.customerId }) { ids, requestInfo ->
+                        requestContext, { it.customer.entityId!! }) { ids, requestInfo ->
                     orderService.findByCustomerIds(ids, requestInfo)
                 }
             }

@@ -55,9 +55,9 @@ type Query {
   customersByIds(ids: [Int]!): [Customer]
   companies: [Company]
   companyPartnerships: [CompanyPartnership]
-#  products: [Product]
-#  topSellingProducts(count: Int!): [Product]
-#  orders: [Order]
+  products: [Product]
+  topSellingProducts(count: Int!): [Product]
+  orders: [Order]
   ordersByIds(ids: [Int]!): [Order]
 }
 

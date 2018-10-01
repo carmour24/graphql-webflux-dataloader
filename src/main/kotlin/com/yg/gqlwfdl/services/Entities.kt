@@ -88,7 +88,7 @@ data class Product(
 
 data class Order(
         override var id: OrderID?,
-        var customerId: CustomerID,
+        var customer: EntityOrId<Customer, CustomerID>,
         var date: OffsetDateTime,
         var deliveryAddress: String,
         val lines: List<Line>
@@ -96,9 +96,9 @@ data class Order(
 
     data class Line(
             override var id: LineID?,
-            var product: EntityOrId<ProductID, Product>,
+            var product: EntityOrId<Product, ProductID>,
             var price: Double,
-            var order: OrderID
+            var order: EntityOrId<Order, OrderID>
     ) : Entity<LineID>
 }
 

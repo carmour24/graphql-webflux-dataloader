@@ -5,7 +5,9 @@ import com.yg.gqlwfdl.dataloaders.companyDataLoader
 import com.yg.gqlwfdl.dataloaders.productOrderCountDataLoader
 import com.yg.gqlwfdl.requestContext
 import com.yg.gqlwfdl.services.Company
+import com.yg.gqlwfdl.services.EntityOrId
 import com.yg.gqlwfdl.services.Product
+import com.yg.gqlwfdl.services.ProductID
 import graphql.schema.DataFetchingEnvironment
 import java.util.concurrent.CompletableFuture
 

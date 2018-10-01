@@ -148,8 +148,9 @@ class GraphQLRoutes(customerService: CustomerService,
                             orderService: OrderService,
                             dbConfig: DBConfig): GraphQLSchema {
 
-        val mutationWrapper = SchemaParserOptions.GenericWrapper.withTransformer(Mutation::class.java, 0, {
-            mutation: Mutation<*>, env: DataFetchingEnvironment ->
+        // TODO: Add join request information to mutation query returns.
+        val mutationWrapper =
+                SchemaParserOptions.GenericWrapper.withTransformer(Mutation::class.java, 0, { mutation: Mutation<*>, env: DataFetchingEnvironment ->
             val unitOfWork = env.requestContext.unitOfWork
             mutation.action(unitOfWork).thenCompose {
                 unitOfWork.complete().thenCompose {
@@ -164,11 +165,11 @@ class GraphQLRoutes(customerService: CustomerService,
         // cache if it is required. Otherwise it will be retrieved as part of a query if required. In a mutation
         // which returns via a query we will need to be careful to ensure that joins are done eagerly if they will be
         // required.
-        // TODO: Add join request information to mutation query returns.
-        val entityOrIdWrapper = SchemaParserOptions.GenericWrapper.withTransformer(EntityOrId::class.java, 0, {
-            entityOrId, env ->
+        val entityOrIdWrapper =
+                SchemaParserOptions.GenericWrapper.withTransformer(EntityOrId::class.java, 0, { entityOrId, env ->
             if (entityOrId is EntityOrId.Entity<*, *>) {
-                 entityOrId.entity
+                logger?.log(Level.FINEST, "Unwrapping EntityOrId wrapper for ${entityOrId.entity}")
+                entityOrId.entity
             } else {
                 env.requestContext.dataLoaderRegistry.getDataLoader<Any, Any>(entityOrId::class.simpleName)
                         .getCacheKey(entityOrId.entityId)
@@ -184,14 +185,15 @@ class GraphQLRoutes(customerService: CustomerService,
                         PricingDetailsResolver(),
                         ProductResolver(),
                         OrderResolver(),
-                        mutationResolver)
+                        mutationResolver
+                )
                 .dictionary("OrderLine", Order.Line::class.java)
-                .dictionary("Product", Product::class.java)
                 .options(SchemaParserOptions.newOptions()
-                        .genericWrappers(mutationWrapper, entityOrIdWrapper, SchemaParserOptions
-                                .GenericWrapper
-                                (Mono::class
-                                        .java, 1))
+                        .genericWrappers(
+                                mutationWrapper,
+                                entityOrIdWrapper,
+                                SchemaParserOptions.GenericWrapper(Mono::class.java, 1)
+                        )
                         .build())
                 .build()
                 .makeExecutableSchema()

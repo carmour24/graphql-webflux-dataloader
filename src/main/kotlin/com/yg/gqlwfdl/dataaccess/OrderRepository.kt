@@ -9,10 +9,7 @@ import com.yg.gqlwfdl.dataaccess.joins.ClientFieldToJoinMapper
 import com.yg.gqlwfdl.dataaccess.joins.JoinedRecordToEntityConverterProvider
 import com.yg.gqlwfdl.dataaccess.joins.RecordProvider
 import com.yg.gqlwfdl.dataloaders.customerOrderDataLoader
-import com.yg.gqlwfdl.services.Customer
-import com.yg.gqlwfdl.services.EntityOrId
-import com.yg.gqlwfdl.services.Order
-import com.yg.gqlwfdl.services.OrderID
+import com.yg.gqlwfdl.services.*
 import io.reactiverse.pgclient.PgPool
 import io.reactiverse.pgclient.Row
 import org.jooq.Condition
@@ -72,8 +69,8 @@ class DBOrderRepository(create: DSLContext,
                     if (orders != null && requestInfo?.context != null) {
                         // Group the orders by the customer ID then for each entry (i.e. each customer) cache its
                         // orders.
-                        orders.groupBy { it.customerId }.forEach {
-                            requestInfo.context.customerOrderDataLoader.prime(it.key, it.value)
+                        orders.groupBy { it.customer }.forEach {
+                            requestInfo.context.customerOrderDataLoader.prime(it.key.entityId, it.value)
                         }
                     }
                 }
@@ -139,7 +136,9 @@ class DBOrderRepository(create: DSLContext,
         fun createOrder(row: Row, orderLines: List<Order.Line>): Boolean {
             return orders.add(Order(
                     row.getOrderId(),
-                    queryInfo.getLong(row, queryInfo.primaryTable, ORDER.CUSTOMER),
+                    queryInfo.getLong(row, queryInfo.primaryTable, ORDER.CUSTOMER)?.let {
+                        EntityOrId.Id<Customer, CustomerID>(it)
+                    },
                     queryInfo.getDate(row, queryInfo.primaryTable, ORDER.DATE),
                     queryInfo.getString(row, queryInfo.primaryTable, ORDER.DELIVERY_ADDRESS),
                     // Don't take a direct reference of the orderLines: clone it so that changes made to the variable
@@ -168,9 +167,11 @@ class DBOrderRepository(create: DSLContext,
                 Order.Line(this.id,
                         currentRow.toProductRecord(
                                 queryInfo,
-                                queryInfo.productTable).toEntityOrID(true),
+                                queryInfo.productTable).toEntityOrID(),
                         this.price,
-                        currentRow.getOrderId()
+                        // Here, the order line is always retrieved via the order so we can guarantee the order entity
+                        // is always present in the above orders list.
+                        EntityOrId.Entity(orders.find { it.id == currentRow.getOrderId() }!!)
                 )
             })
 
